@@ -51,6 +51,7 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.tasks.TestSubtaskCheckpointCoordinator;
+import org.apache.flink.util.clock.SystemClock;
 
 import org.junit.After;
 import org.junit.Test;
@@ -144,6 +145,7 @@ public class StreamTaskNetworkInputTest {
                                                 TestSubtaskCheckpointCoordinator.INSTANCE,
                                                 "test",
                                                 new DummyCheckpointInvokable(),
+                                                SystemClock.getInstance(),
                                                 inputGate.getInputGate()),
                                 new SyncMailboxExecutor()),
                         inSerializer,
@@ -193,7 +195,10 @@ public class StreamTaskNetworkInputTest {
                 new StreamTaskNetworkInput<>(
                         new CheckpointedInputGate(
                                 inputGate.getInputGate(),
-                                new CheckpointBarrierTracker(1, new DummyCheckpointInvokable()),
+                                new CheckpointBarrierTracker(
+                                        1,
+                                        new DummyCheckpointInvokable(),
+                                        SystemClock.getInstance()),
                                 new SyncMailboxExecutor()),
                         inSerializer,
                         new StatusWatermarkValve(1),
@@ -221,7 +226,8 @@ public class StreamTaskNetworkInputTest {
         return new StreamTaskNetworkInput<>(
                 new CheckpointedInputGate(
                         new MockInputGate(1, buffers, false),
-                        new CheckpointBarrierTracker(1, new DummyCheckpointInvokable()),
+                        new CheckpointBarrierTracker(
+                                1, new DummyCheckpointInvokable(), SystemClock.getInstance()),
                         new SyncMailboxExecutor()),
                 LongSerializer.INSTANCE,
                 ioManager,
