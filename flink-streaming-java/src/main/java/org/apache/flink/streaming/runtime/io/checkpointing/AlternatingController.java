@@ -37,7 +37,7 @@ public class AlternatingController implements CheckpointBarrierBehaviourControll
     private final UnalignedController unalignedController;
 
     private CheckpointBarrierBehaviourController activeController;
-    private long firstBarrierArrivalTime = Long.MAX_VALUE;
+    private long lastBarrierArrivalTime = Long.MAX_VALUE;
     private long lastSeenBarrier = -1L;
 
     public AlternatingController(
@@ -57,8 +57,7 @@ public class AlternatingController implements CheckpointBarrierBehaviourControll
             InputChannelInfo channelInfo, CheckpointBarrier announcedBarrier, int sequenceNumber)
             throws IOException {
         if (lastSeenBarrier < announcedBarrier.getId()) {
-            lastSeenBarrier = announcedBarrier.getId();
-            firstBarrierArrivalTime = getArrivalTime(announcedBarrier);
+            updateLastBarrier(announcedBarrier);
         }
 
         Optional<CheckpointBarrier> maybeTimedOut = asTimedOut(announcedBarrier);
@@ -72,6 +71,11 @@ public class AlternatingController implements CheckpointBarrierBehaviourControll
             // checkpoints
             activeController.barrierAnnouncement(channelInfo, announcedBarrier, sequenceNumber);
         }
+    }
+
+    private void updateLastBarrier(CheckpointBarrier announcedBarrier) {
+        lastSeenBarrier = announcedBarrier.getId();
+        lastBarrierArrivalTime = getArrivalTime(announcedBarrier);
     }
 
     @Override
@@ -109,8 +113,7 @@ public class AlternatingController implements CheckpointBarrierBehaviourControll
             InputChannelInfo channelInfo, CheckpointBarrier barrier)
             throws IOException, CheckpointException {
         if (lastSeenBarrier < barrier.getId()) {
-            lastSeenBarrier = barrier.getId();
-            firstBarrierArrivalTime = getArrivalTime(barrier);
+            updateLastBarrier(barrier);
         }
         activeController = chooseController(barrier);
         return activeController.preProcessFirstBarrier(channelInfo, barrier);
@@ -180,7 +183,7 @@ public class AlternatingController implements CheckpointBarrierBehaviourControll
         return barrier.getCheckpointOptions().isTimeoutable()
                 && barrier.getId() <= lastSeenBarrier
                 && barrier.getCheckpointOptions().getAlignmentTimeout() * 1_000_000
-                        < (System.nanoTime() - firstBarrierArrivalTime);
+                        < (System.nanoTime() - lastBarrierArrivalTime);
     }
 
     private long getArrivalTime(CheckpointBarrier announcedBarrier) {
