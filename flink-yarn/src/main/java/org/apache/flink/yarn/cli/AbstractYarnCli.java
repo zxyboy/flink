@@ -52,6 +52,7 @@ abstract class AbstractYarnCli extends AbstractCustomCommandLine {
 
     @Override
     public boolean isActive(CommandLine commandLine) {
+        // 指定-m 或者 --jobmanager
         final String jobManagerOption = commandLine.getOptionValue(addressOption.getOpt(), null);
         final boolean yarnJobManager = ID.equals(jobManagerOption);
         final boolean hasYarnAppId =

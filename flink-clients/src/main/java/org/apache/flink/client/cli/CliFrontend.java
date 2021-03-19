@@ -220,19 +220,24 @@ public class CliFrontend {
      */
     protected void run(String[] args) throws Exception {
         LOG.info("Running 'run' command.");
-
+        // 构建run命令选项
         final Options commandOptions = CliFrontendParser.getRunCommandOptions();
+        // 将输出的args封装成CommandLine对象
         final CommandLine commandLine = getCommandLine(commandOptions, args, true);
 
         // evaluate help flag
+        // 如果命令行中有 -h 或者 -help 则打印提示消息
         if (commandLine.hasOption(HELP_OPTION.getOpt())) {
             CliFrontendParser.printHelpForRun(customCommandLines);
             return;
         }
-
+        // 获取CustomCommandLine， 获取顺序： GenericCLI、FlinkYarnSessionCli、DefaultCLI
+        // 如果 GenericCLI、FlinkYarnSessionCli 都的is_active方法都返回false，则使用 DefaultCLI
+        // 因为DefaultCLI的isActive方法就是返回 true
         final CustomCommandLine activeCommandLine =
                 validateAndGetActiveCommandLine(checkNotNull(commandLine));
 
+        // 创建程序执行选型
         final ProgramOptions programOptions = ProgramOptions.create(commandLine);
 
         final List<URL> jobJars = getJobJarAndDependencies(programOptions);
@@ -685,8 +690,10 @@ public class CliFrontend {
     public CommandLine getCommandLine(
             final Options commandOptions, final String[] args, final boolean stopAtNonOptions)
             throws CliArgsException {
+        // 合并customCommandLineOptions和commandOptions选项
         final Options commandLineOptions =
                 CliFrontendParser.mergeOptions(commandOptions, customCommandLineOptions);
+        // 解析option成CommandLine
         return CliFrontendParser.parse(commandLineOptions, args, stopAtNonOptions);
     }
 

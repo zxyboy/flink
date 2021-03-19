@@ -67,12 +67,12 @@ public class ProgramOptions extends CommandLineOptions {
 
     protected ProgramOptions(CommandLine line) throws CliArgsException {
         super(line);
-
+        // 获取 -c 或者 --class
         this.entryPointClass =
                 line.hasOption(CLASS_OPTION.getOpt())
                         ? line.getOptionValue(CLASS_OPTION.getOpt())
                         : null;
-
+        // 获取 -j 或者 --jarfile
         this.jarFilePath =
                 line.hasOption(JAR_OPTION.getOpt())
                         ? line.getOptionValue(JAR_OPTION.getOpt())
@@ -81,6 +81,7 @@ public class ProgramOptions extends CommandLineOptions {
         this.programArgs = extractProgramArgs(line);
 
         List<URL> classpaths = new ArrayList<URL>();
+        // -C 或者--classpath
         if (line.hasOption(CLASSPATH_OPTION.getOpt())) {
             for (String path : line.getOptionValues(CLASSPATH_OPTION.getOpt())) {
                 try {
@@ -91,10 +92,11 @@ public class ProgramOptions extends CommandLineOptions {
             }
         }
         this.classpaths = classpaths;
-
+        // 指定 -p 或者 --parallelism 参数
         if (line.hasOption(PARALLELISM_OPTION.getOpt())) {
             String parString = line.getOptionValue(PARALLELISM_OPTION.getOpt());
             try {
+                // 设置并行度
                 parallelism = Integer.parseInt(parString);
                 if (parallelism <= 0) {
                     throw new NumberFormatException();
@@ -104,14 +106,16 @@ public class ProgramOptions extends CommandLineOptions {
                         "The parallelism must be a positive number: " + parString);
             }
         } else {
+            // 没有指定使用默认的并行度
             parallelism = ExecutionConfig.PARALLELISM_DEFAULT;
         }
-
+        // 设置 -d 或者 detached
         detachedMode =
                 line.hasOption(DETACHED_OPTION.getOpt())
                         || line.hasOption(YARN_DETACHED_OPTION.getOpt());
+        // -sae 或者 --shutdownOnAttachedExit
         shutdownOnAttachedExit = line.hasOption(SHUTDOWN_IF_ATTACHED_OPTION.getOpt());
-
+        // 保存点设置
         this.savepointSettings = CliFrontendParser.createSavepointRestoreSettings(line);
     }
 

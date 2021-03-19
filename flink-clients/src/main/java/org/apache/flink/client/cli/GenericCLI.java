@@ -86,6 +86,10 @@ public class GenericCLI implements CustomCommandLine {
 
     @Override
     public boolean isActive(CommandLine commandLine) {
+        // 如果配置了execution.target
+        // 或者 -e 或者 --executor
+        // 或者 -t 或者 --target （推荐）
+        // 则返回true
         return configuration.getOptional(DeploymentOptions.TARGET).isPresent()
                 || commandLine.hasOption(executorOption.getOpt())
                 || commandLine.hasOption(targetOption.getOpt());
