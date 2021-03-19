@@ -1036,6 +1036,7 @@ public class CliFrontend {
 
         // check for action
         if (args.length < 1) {
+            // 打印帮助信息
             CliFrontendParser.printHelp(customCommandLines);
             System.out.println("Please specify an action.");
             return 1;
@@ -1111,6 +1112,7 @@ public class CliFrontend {
 
     /** Submits the job based on the arguments. */
     public static void main(final String[] args) {
+        // 打印日志
         EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
         // 1. find the configuration directory
@@ -1188,12 +1190,14 @@ public class CliFrontend {
     public static List<CustomCommandLine> loadCustomCommandLines(
             Configuration configuration, String configurationDirectory) {
         List<CustomCommandLine> customCommandLines = new ArrayList<>();
+        // 添加GenericCLI
         customCommandLines.add(new GenericCLI(configuration, configurationDirectory));
 
         //	Command line interface of the YARN session, with a special initialization here
         //	to prefix all options with y/yarn.
         final String flinkYarnSessionCLI = "org.apache.flink.yarn.cli.FlinkYarnSessionCli";
         try {
+            // 添加FlinkYarnSessionCLI
             customCommandLines.add(
                     loadCustomCommandLine(
                             flinkYarnSessionCLI,
@@ -1212,8 +1216,8 @@ public class CliFrontend {
         }
 
         //	Tips: DefaultCLI must be added at last, because getActiveCustomCommandLine(..) will get
-        // the
-        //	      active CustomCommandLine in order and DefaultCLI isActive always return true.
+        // the active CustomCommandLine in order and DefaultCLI isActive always return true.
+        // 添加默认DefaultCLI
         customCommandLines.add(new DefaultCLI());
 
         return customCommandLines;
