@@ -65,7 +65,7 @@ public abstract class AbstractCustomCommandLine implements CustomCommandLine {
 
         return resultingConfiguration;
     }
-
+    // 打印用法
     protected void printUsage() {
         System.out.println("Usage:");
         HelpFormatter formatter = new HelpFormatter();
@@ -78,7 +78,7 @@ public abstract class AbstractCustomCommandLine implements CustomCommandLine {
         addRunOptions(options);
         formatter.printHelp(" ", options);
     }
-
+    
     public static int handleCliArgsException(CliArgsException e, Logger logger) {
         logger.error("Could not parse the command line arguments.", e);
 

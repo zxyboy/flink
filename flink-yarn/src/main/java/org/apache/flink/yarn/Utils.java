@@ -704,6 +704,7 @@ public final class Utils {
 
     public static YarnConfiguration getYarnAndHadoopConfiguration(
             org.apache.flink.configuration.Configuration flinkConfig) {
+        // 将flink.yarn.开头的配置，去掉flink.开头后，保存到yarnConfig
         final YarnConfiguration yarnConfig = getYarnConfiguration(flinkConfig);
         yarnConfig.addResource(HadoopUtils.getHadoopConfiguration(flinkConfig));
 

@@ -56,6 +56,7 @@ public class YarnClusterClientFactory
         checkNotNull(configuration);
 
         final String configurationDirectory = configuration.get(DeploymentOptionsInternal.CONF_DIR);
+        // 设置属性： $internal.yarn.log-config-file
         YarnLogConfigUtil.setLogConfigFileInConfig(configuration, configurationDirectory);
 
         return getClusterDescriptor(configuration);
@@ -76,6 +77,7 @@ public class YarnClusterClientFactory
 
     private YarnClusterDescriptor getClusterDescriptor(Configuration configuration) {
         final YarnClient yarnClient = YarnClient.createYarnClient();
+        // 将hadoop/yarn配置保存到yarnConfiguration
         final YarnConfiguration yarnConfiguration =
                 Utils.getYarnAndHadoopConfiguration(configuration);
 

@@ -390,7 +390,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
     public Configuration toConfiguration(CommandLine commandLine) throws FlinkException {
         // we ignore the addressOption because it can only contain "yarn-cluster"
         final Configuration effectiveConfiguration = new Configuration();
-
+        // 将yarn-session.sh传入的参数保存到effectiveConfiguration中
         applyDescriptorOptionToConfig(commandLine, effectiveConfiguration);
 
         final ApplicationId applicationId = getApplicationId(commandLine);
@@ -411,7 +411,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
         } else {
             effectiveConfiguration.setString(DeploymentOptions.TARGET, YarnJobClusterExecutor.NAME);
         }
-
+        // 设置 jobmanager.memory.process.size 内存
         if (commandLine.hasOption(jmMemory.getOpt())) {
             String jmMemoryVal = commandLine.getOptionValue(jmMemory.getOpt());
             if (!MemorySize.MemoryUnit.hasUnit(jmMemoryVal)) {
@@ -420,7 +420,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
             effectiveConfiguration.set(
                     JobManagerOptions.TOTAL_PROCESS_MEMORY, MemorySize.parse(jmMemoryVal));
         }
-
+        // 设置： taskmanager.memory.process.size 内存
         if (commandLine.hasOption(tmMemory.getOpt())) {
             String tmMemoryVal = commandLine.getOptionValue(tmMemory.getOpt());
             if (!MemorySize.MemoryUnit.hasUnit(tmMemoryVal)) {
@@ -429,13 +429,13 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
             effectiveConfiguration.set(
                     TaskManagerOptions.TOTAL_PROCESS_MEMORY, MemorySize.parse(tmMemoryVal));
         }
-
+        // 设置： taskmanager.numberOfTaskSlots
         if (commandLine.hasOption(slots.getOpt())) {
             effectiveConfiguration.setInteger(
                     TaskManagerOptions.NUM_TASK_SLOTS,
                     Integer.parseInt(commandLine.getOptionValue(slots.getOpt())));
         }
-
+        // 处理：-D 参数带来的动态配置， 并将动态配置加入到effectiveConfiguration
         dynamicPropertiesEncoded = encodeDynamicProperties(commandLine);
         if (!dynamicPropertiesEncoded.isEmpty()) {
             Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);
@@ -463,40 +463,40 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
         }
         return null;
     }
-
+    // 将yarn-session.sh 传入的参数保存到configuration中
     private void applyDescriptorOptionToConfig(
             final CommandLine commandLine, final Configuration configuration)
             throws ConfigurationException {
         checkNotNull(commandLine);
         checkNotNull(configuration);
-
+        // 解析flink-dist*.jar路径： -j "$FLINK_LIB_DIR"/flink-dist*.jar
         final Path localJarPath = getLocalFlinkDistPathFromCmd(commandLine);
         if (localJarPath != null) {
             configuration.setString(YarnConfigOptions.FLINK_DIST_JAR, localJarPath.toString());
         }
-
+        // 处理 -t 或者 --ship参数
         encodeFilesToShipToCluster(configuration, commandLine);
-
+        // 处理： -qu 或 --queue
         if (commandLine.hasOption(queue.getOpt())) {
             final String queueName = commandLine.getOptionValue(queue.getOpt());
             configuration.setString(YarnConfigOptions.APPLICATION_QUEUE, queueName);
         }
-
+        // 处理： -d 或者 detached ； 目前：-yd 或 yarndetached 已废弃，但同样有效
         final boolean detached =
                 commandLine.hasOption(YARN_DETACHED_OPTION.getOpt())
                         || commandLine.hasOption(DETACHED_OPTION.getOpt());
         configuration.setBoolean(DeploymentOptions.ATTACHED, !detached);
-
+        // 处理： -nm 或者 -name
         if (commandLine.hasOption(name.getOpt())) {
             final String appName = commandLine.getOptionValue(name.getOpt());
             configuration.setString(YarnConfigOptions.APPLICATION_NAME, appName);
         }
-
+        // 处理： -at 或者 --applicationType
         if (commandLine.hasOption(applicationType.getOpt())) {
             final String appType = commandLine.getOptionValue(applicationType.getOpt());
             configuration.setString(YarnConfigOptions.APPLICATION_TYPE, appType);
         }
-
+        // 处理： -z 或者 --zookeeperNamespace
         if (commandLine.hasOption(zookeeperNamespace.getOpt())) {
             String zookeeperNamespaceValue =
                     commandLine.getOptionValue(zookeeperNamespace.getOpt());
@@ -506,12 +506,12 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
                     commandLine.getOptionValue(zookeeperNamespaceOption.getOpt());
             configuration.setString(HA_CLUSTER_ID, zookeeperNamespaceValue);
         }
-
+        // 处理： -nl 或者 --nodeLabel
         if (commandLine.hasOption(nodeLabel.getOpt())) {
             final String nodeLabelValue = commandLine.getOptionValue(this.nodeLabel.getOpt());
             configuration.setString(YarnConfigOptions.NODE_LABEL, nodeLabelValue);
         }
-
+        // configurationDirectory: flink安装目录conf目录路径
         configuration.set(DeploymentOptionsInternal.CONF_DIR, configurationDirectory);
     }
 
@@ -556,7 +556,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
         return effectiveConfiguration;
     }
-
+    // 开始运行程序：-j "$FLINK_LIB_DIR"/flink-dist*.jar -d -nm flink-1.16.0
     public int run(String[] args) throws CliArgsException, FlinkException {
         //
         //	Command Line Options
@@ -567,13 +567,17 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
             printUsage();
             return 0;
         }
+        // 这里configuration就是flink-conf.yaml中的配置
         final Configuration effectiveConfiguration = new Configuration(configuration);
+        // 将yarn-session.sh 命令行参数转换为commandLineConfiguration
         final Configuration commandLineConfiguration = toConfiguration(cmd);
+        // 合并配置， 如果配置重合，最终以yarn-session.sh传入的参数为准
         effectiveConfiguration.addAll(commandLineConfiguration);
         LOG.debug("Effective configuration: {}", effectiveConfiguration);
-
+        // YarnClusterClientFactory
         final ClusterClientFactory<ApplicationId> yarnClusterClientFactory =
                 clusterClientServiceLoader.getClusterClientFactory(effectiveConfiguration);
+        // 强制配置： execution.target=yarn-session
         effectiveConfiguration.set(
                 DeploymentOptions.TARGET, YarnDeploymentTarget.SESSION.getName());
 
@@ -583,6 +587,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
         try {
             // Query cluster for metrics
+            // 如果配置：-q 或者 --query， 则打印yarn上可用的资源
             if (cmd.hasOption(query.getOpt())) {
                 final String description = yarnClusterDescriptor.getClusterDescription();
                 System.out.println(description);
@@ -590,7 +595,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
             } else {
                 final ClusterClientProvider<ApplicationId> clusterClientProvider;
                 final ApplicationId yarnApplicationId;
-
+                // 指定 -id 或者 --applicationId， 则重新连接yarn集群上运行的程序
                 if (cmd.hasOption(applicationId.getOpt())) {
                     yarnApplicationId =
                             ConverterUtils.toApplicationId(
@@ -843,8 +848,9 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
     }
 
     public static void main(final String[] args) {
+        // 验证： flink conf配置文件路径
         final String configurationDirectory = CliFrontend.getConfigurationDirectoryFromEnv();
-
+        // 加载： flink-conf.yaml 文件配置
         final Configuration flinkConfiguration = GlobalConfiguration.loadConfiguration();
 
         int retCode;
