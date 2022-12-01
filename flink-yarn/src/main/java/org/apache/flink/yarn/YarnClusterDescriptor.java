@@ -138,9 +138,9 @@ import static org.apache.flink.yarn.YarnConfigKeys.LOCAL_RESOURCE_DESCRIPTOR_SEP
 /** The descriptor with deployment information for deploying a Flink cluster on Yarn. */
 public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
     private static final Logger LOG = LoggerFactory.getLogger(YarnClusterDescriptor.class);
-
+    // yarn 配置文件
     private final YarnConfiguration yarnConfiguration;
-
+    // yarn客户端
     private final YarnClient yarnClient;
 
     private final YarnClusterInformationRetriever yarnClusterInformationRetriever;
@@ -152,19 +152,19 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
     private final List<File> shipFiles = new LinkedList<>();
 
     private final List<File> shipArchives = new LinkedList<>();
-
+    // yarn队列名
     private final String yarnQueue;
-
+    // flink jar包路径： 解析flink-dist*.jar路径： -j "$FLINK_LIB_DIR"/flink-dist*.jar
     private Path flinkJarPath;
-
+    // flink 配置
     private final Configuration flinkConfiguration;
-
+    // 自定义yarn应用名称 ： -nm 或者 -name 指定的名称
     private final String customName;
-
+    // 指定yarn node节点名部署
     private final String nodeLabel;
-
+    // 应用类型 ： 作用未知
     private final String applicationType;
-
+    // yarn指定用户jar包，配置方法在flink-conf.yaml中： flink.yarn.classpath.include-user-jar
     private YarnConfigOptions.UserJarInclusion userJarInclusion;
 
     public YarnClusterDescriptor(
@@ -316,7 +316,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                                         || name.endsWith(".jar")
                                         || name.endsWith(".zip"));
     }
-
+    // 检查必要配置是否满足
     private void isReadyForDeployment(ClusterSpecification clusterSpecification) throws Exception {
 
         if (this.flinkJarPath == null) {
@@ -327,8 +327,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         }
 
         // Check if we don't exceed YARN's maximum virtual cores.
+        // yarn集群上最大虚拟核心：vcores
         final int numYarnMaxVcores = yarnClusterInformationRetriever.getMaxVcores();
-
+        // App master配置的虚拟核心数，默认：1
+        // 可以使用两种方式配置：
+        // 1. 在flink-conf.yaml中使用： flink.yarn.appmaster.vcores: xx 配置
+        // 2. 启动yarn-seesion.sh脚本时，使用: -Dyarn.appmaster.vcores=xx 配置
         int configuredAmVcores = flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES);
         if (configuredAmVcores > numYarnMaxVcores) {
             throw new IllegalConfigurationException(
@@ -337,7 +341,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                                     + " exceeds the maximum number of virtual cores %d available in the Yarn Cluster.",
                             configuredAmVcores, numYarnMaxVcores));
         }
-
+        // TaskManager Slot配置
+        // 配置：
+        // 1. flink-conf.yaml中配置： taskmanager.numberOfTaskSlots （优先级低）
+        // 2. flink-conf.yaml中配置： flink.yarn.containers.vcores (优先级高)
         int configuredVcores =
                 flinkConfiguration.getInteger(
                         YarnConfigOptions.VCORES, clusterSpecification.getSlotsPerTaskManager());
@@ -536,6 +543,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
             throws Exception {
 
         final UserGroupInformation currentUser = UserGroupInformation.getCurrentUser();
+        // KerberosSecurityEnabled检查
         if (HadoopUtils.isKerberosSecurityEnabled(currentUser)) {
             boolean useTicketCache =
                     flinkConfiguration.getBoolean(SecurityOptions.KERBEROS_LOGIN_USETICKETCACHE);
@@ -560,11 +568,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                                 SecurityOptions.KERBEROS_HADOOP_FILESYSTEMS_TO_ACCESS.key()));
             }
         }
-
+        // 检查集群规格配置
         isReadyForDeployment(clusterSpecification);
 
         // ------------------ Check if the specified queue exists --------------------
-
+        // 如果指定yarn队列的话，则检查指定的yarn队列是否存在
         checkYarnQueues(yarnClient);
 
         // ------------------ Check if the YARN ClusterClient has the requested resources
@@ -573,7 +581,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         // Create application via yarnClient
         final YarnClientApplication yarnApplication = yarnClient.createApplication();
         final GetNewApplicationResponse appResponse = yarnApplication.getNewApplicationResponse();
-
+        // yarn可使用的最大资源
         Resource maxRes = appResponse.getMaximumResourceCapability();
 
         final ClusterResourceDescription freeClusterMem;
@@ -584,7 +592,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
             throw new YarnDeploymentException(
                     "Could not retrieve information about free cluster resources.", e);
         }
-
+        // yarn最小分配内存
         final int yarnMinAllocationMB =
                 yarnConfiguration.getInt(
                         YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
@@ -601,6 +609,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         final ClusterSpecification validClusterSpecification;
         try {
+            // 验证集群内存资源
             validClusterSpecification =
                     validateClusterResources(
                             clusterSpecification, yarnMinAllocationMB, maxRes, freeClusterMem);
@@ -615,10 +624,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                 detached
                         ? ClusterEntrypoint.ExecutionMode.DETACHED
                         : ClusterEntrypoint.ExecutionMode.NORMAL;
-
+        // 设置执行模式： 后台 or 前台
         flinkConfiguration.setString(
                 ClusterEntrypoint.INTERNAL_CLUSTER_EXECUTION_MODE, executionMode.toString());
-
+        // 启动Yarn AppMaster程序
         ApplicationReport report =
                 startAppMaster(
                         flinkConfiguration,
@@ -743,7 +752,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                     normalizedMemMB - componentMemoryMB);
         }
     }
-
+    // 如果指定yarn队列的话，则检查指定的yarn队列是否存在
     private void checkYarnQueues(YarnClient yarnClient) {
         try {
             List<QueueInfo> queues = yarnClient.getAllQueues();
@@ -778,7 +787,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
             }
         }
     }
-
+    // 启动AppMaster：
     private ApplicationReport startAppMaster(
             Configuration configuration,
             String applicationName,
@@ -1236,8 +1245,9 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                 new DeploymentFailureHook(yarnApplication, fileUploader.getApplicationDir());
         Runtime.getRuntime().addShutdownHook(deploymentFailureHook);
         LOG.info("Submitting application master " + appId);
+        // 提交yarn任务
         yarnClient.submitApplication(appContext);
-
+        // 循环查看yarn任务状态，直到正常到达：RUNNING/FINISHED, 或失败：FAILED / SKILLED
         LOG.info("Waiting for the cluster to be allocated");
         final long startTime = System.currentTimeMillis();
         ApplicationReport report;

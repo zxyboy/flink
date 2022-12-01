@@ -140,7 +140,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
     private final Properties yarnPropertiesFile;
 
     private final ApplicationId yarnApplicationIdFromYarnProperties;
-
+    // 配置：yarn.properties-file.location
     private final String yarnPropertiesFileLocation;
 
     private final ClusterClientServiceLoader clusterClientServiceLoader;
@@ -603,10 +603,11 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
                     clusterClientProvider = yarnClusterDescriptor.retrieve(yarnApplicationId);
                 } else {
+                    // 统一集群规范： 设置内存大小等
                     final ClusterSpecification clusterSpecification =
                             yarnClusterClientFactory.getClusterSpecification(
                                     effectiveConfiguration);
-
+                    // 部署yarn session集群 TODO
                     clusterClientProvider =
                             yarnClusterDescriptor.deploySessionCluster(clusterSpecification);
                     ClusterClient<ApplicationId> clusterClient =
@@ -617,6 +618,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
                     try {
                         // Other threads use the Yarn properties file to connect to the YARN session
+                        // 将yarn属性写入文件： ${yarn.properties-file.location} + YARN_PROPERTIES_FILE + $USER
                         writeYarnPropertiesFile(yarnApplicationId, dynamicPropertiesEncoded);
 
                         // Multiple tests match on the following output
@@ -639,10 +641,11 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
                                 "Could not write the Yarn connection information.", e);
                     }
                 }
-
+                // 后台运行
                 if (!effectiveConfiguration.getBoolean(DeploymentOptions.ATTACHED)) {
                     YarnClusterDescriptor.logDetachedClusterInformation(yarnApplicationId, LOG);
                 } else {
+                    // 前台运行
                     ScheduledExecutorService scheduledExecutorService =
                             Executors.newSingleThreadScheduledExecutor();
 
@@ -690,7 +693,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
         return 0;
     }
-
+    // 关闭集群： 并删除yarn.properties-file.location 配置的路径
     private void shutdownCluster(
             ClusterClient<ApplicationId> clusterClient,
             ScheduledExecutorService scheduledExecutorService,
@@ -754,7 +757,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
                             + "(It sometimes takes a few seconds until the logs are aggregated)");
         }
     }
-
+    // 删除： yarn.properties-file.location 配置的路径
     private void deleteYarnPropertiesFile() {
         // try to clean up the old yarn properties file
         try {
@@ -876,7 +879,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
         System.exit(retCode);
     }
-
+    // 前台： 交互模式
     private static void runInteractiveCli(
             YarnApplicationStatusMonitor yarnApplicationStatusMonitor, boolean readConsoleInput) {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(System.in))) {
@@ -962,7 +965,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
         return true;
     }
-
+    // 写入文件，并将文件设置成只读
     private static void writeYarnProperties(Properties properties, File propertiesFile) {
         try (final OutputStream out = new FileOutputStream(propertiesFile)) {
             properties.store(out, "Generated YARN properties file");
@@ -971,7 +974,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
         }
         propertiesFile.setReadable(true, false); // readable for all.
     }
-
+    // 获取： yarn.properties-file.location 配置将路径 + 文件名
     public static File getYarnPropertiesLocation(@Nullable String yarnPropertiesFileLocation) {
 
         final String propertiesFileLocation;
