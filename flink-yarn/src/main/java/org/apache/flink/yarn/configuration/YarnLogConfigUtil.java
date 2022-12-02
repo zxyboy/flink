@@ -81,10 +81,10 @@ public class YarnLogConfigUtil {
         }
         return logConfigFile;
     }
-
+    // 获取日志yarn命令
     public static String getLoggingYarnCommand(final Configuration configuration) {
         checkNotNull(configuration);
-
+        // $internal.yarn.log-config-file
         final String logConfigFilePath =
                 configuration.getString(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE);
         if (logConfigFilePath == null) {
@@ -92,6 +92,7 @@ public class YarnLogConfigUtil {
         }
 
         String logCommand = getLog4jCommand(logConfigFilePath);
+        // log4j不存在，则回退到logback.xml
         if (logCommand.isEmpty()) {
             logCommand = getLogBackCommand(logConfigFilePath);
         }
@@ -111,7 +112,7 @@ public class YarnLogConfigUtil {
                 .append(" -Dlogback.configurationFile=file:" + CONFIG_FILE_LOGBACK_NAME)
                 .toString();
     }
-
+    // 获取log4j启动命令参数
     private static String getLog4jCommand(final String logConfigFilePath) {
         final boolean hasLog4j = logConfigFilePath.endsWith(CONFIG_FILE_LOG4J_NAME);
         if (!hasLog4j) {

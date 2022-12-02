@@ -162,9 +162,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
     private final String customName;
     // 指定yarn node节点名部署
     private final String nodeLabel;
-    // 应用类型 ： 作用未知
+    // 应用类型 ： 相当于打个标签，方便任务归类
     private final String applicationType;
-    // yarn指定用户jar包，配置方法在flink-conf.yaml中： flink.yarn.classpath.include-user-jar
+    // yarn指定用户jar包，配置方法在flink-conf.yaml中： flink.yarn.classpath.include-user-jar,默认为：ORDER
+    // 表示是否将用户jar添加到系统类路径下
     private YarnConfigOptions.UserJarInclusion userJarInclusion;
 
     public YarnClusterDescriptor(
@@ -802,7 +803,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         org.apache.flink.core.fs.FileSystem.initialize(
                 configuration, PluginUtils.createPluginManagerFromRootFolder(configuration));
-
+        // hdfs文件系统
         final FileSystem fs = FileSystem.get(yarnConfiguration);
 
         // hard coded check for the GoogleHDFS client because its not overriding the getScheme()
@@ -816,17 +817,24 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                             + "specified Hadoop configuration path is wrong and the system is using the default Hadoop configuration values."
                             + "The Flink YARN client needs to store its files in a distributed file system");
         }
-
+        // yarn应用程序上下文
         ApplicationSubmissionContext appContext = yarnApplication.getApplicationSubmissionContext();
-
+        // 远程文件系统中功效lib目录
+        // 配置方法：
+        // 1. flink-conf.yaml中配置：flink.yarn.provided.lib.dirs: xxx
+        // 2. yarn-session.sh 脚本参数： -Dyarn.provided.lib.dirs=xxx  指定
         final List<Path> providedLibDirs =
                 Utils.getQualifiedRemoteProvidedLibDirs(configuration, yarnConfiguration);
-
+        // yarn中用户jar包
+        // 配置方法：
+        // 1. flink-conf.yaml中配置：flink.yarn.provided.usrlib.dir: xxx
+        // 2. yarn-session.sh 脚本参数： -Dyarn.provided.usrlib.dir=xxx  指定
         final Optional<Path> providedUsrLibDir =
                 Utils.getQualifiedRemoteProvidedUsrLib(configuration, yarnConfiguration);
-
+        // 如果未指定配置：yarn.staging-directory， 则默认为：/user/$USER/
         Path stagingDirPath = getStagingDir(fs);
         FileSystem stagingDirFs = stagingDirPath.getFileSystem(yarnConfiguration);
+        // 初始化Yarn程序相关文件上传器
         final YarnApplicationFileUploader fileUploader =
                 YarnApplicationFileUploader.from(
                         stagingDirFs,
@@ -836,11 +844,13 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                         getFileReplication());
 
         // The files need to be shipped and added to classpath.
+        // yarn-session.sh脚本： --ship 指定的jar
         Set<File> systemShipFiles = new HashSet<>(shipFiles.size());
         for (File file : shipFiles) {
             systemShipFiles.add(file.getAbsoluteFile());
         }
-
+        // 日志文件位置：默认为， flink安装目录/conf/log4j.properties；
+        // 如果没有log4j.properties文件，则使用logback.xml文件
         final String logConfigFilePath =
                 configuration.getString(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE);
         if (logConfigFilePath != null) {
@@ -869,6 +879,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         }
 
         final Set<Path> userJarFiles = new HashSet<>();
+        // jobGraph为null
         if (jobGraph != null) {
             userJarFiles.addAll(
                     jobGraph.getUserJars().stream()
@@ -900,7 +911,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
             jobGraph.writeUserArtifactEntriesToConfiguration();
         }
-
+        // 如果providedLibDirs为配置任何jar，则将flink安装目录lib添加到systemShipFiles
         if (providedLibDirs == null || providedLibDirs.isEmpty()) {
             addLibFoldersToShipFiles(systemShipFiles);
         }
@@ -908,6 +919,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         // Register all files in provided lib dirs as local resources with public visibility
         // and upload the remaining dependencies as local resources with APPLICATION visibility.
         final List<String> systemClassPaths = fileUploader.registerProvidedLocalResources();
+        // systemShipFiles中包含了：
+        // 1. flink安装目录/conf/log2j.properties
+        // 2. flink安装目录/lib 目录 ： 注意，这里lib目录下jar包上传到远程文件系统，除了flink-dist*.jar是以共享（PUBLIC）,因为这个jar是单独上传的。
+        // 3. yarn-session.sh脚本： --ship 指定的jar
         final List<String> uploadedDependencies =
                 fileUploader.registerMultipleLocalResources(
                         systemShipFiles.stream()
@@ -919,9 +934,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         // upload and register ship-only files
         // Plugin files only need to be shipped and should not be added to classpath.
+        // providedLibDirs为空
         if (providedLibDirs == null || providedLibDirs.isEmpty()) {
             Set<File> shipOnlyFiles = new HashSet<>();
+            // 将Flink插件目录： Flink安装目录/plugins 添加到effectiveShipFiles
             addPluginsFoldersToShipFiles(shipOnlyFiles);
+            // 将Flink插件目录上传到远程文件系统
             fileUploader.registerMultipleLocalResources(
                     shipOnlyFiles.stream()
                             .map(e -> new Path(e.toURI()))
@@ -929,7 +947,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                     Path.CUR_DIR,
                     LocalResourceType.FILE);
         }
-
+        // 如果shipArchives不为空，则也将shipArchives上传到远程文件系统
         if (!shipArchives.isEmpty()) {
             fileUploader.registerMultipleLocalResources(
                     shipArchives.stream().map(e -> new Path(e.toURI())).collect(Collectors.toSet()),
@@ -939,6 +957,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         // only for application mode
         // Python jar file only needs to be shipped and should not be added to classpath.
+        // YarnApplication模式进入该方法
         if (YarnApplicationClusterEntryPoint.class.getName().equals(yarnClusterEntrypoint)
                 && PackagedProgramUtils.isPython(configuration.get(APPLICATION_MAIN_CLASS))) {
             fileUploader.registerMultipleLocalResources(
@@ -949,6 +968,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         }
 
         // Upload and register user jars
+        // 如果userJarFiles不为空，则将userJarFiles上传到远程文件系统
         final List<String> userClassPaths =
                 fileUploader.registerMultipleLocalResources(
                         userJarFiles,
@@ -958,6 +978,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                         LocalResourceType.FILE);
 
         // usrlib in remote will be used first.
+        // 如果providedUsrLibDir不为空，则上传到远程文件系统
         if (providedUsrLibDir.isPresent()) {
             final List<String> usrLibClassPaths =
                     fileUploader.registerMultipleLocalResources(
@@ -968,6 +989,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         } else if (ClusterEntrypointUtils.tryFindUserLibDirectory().isPresent()) {
             // local usrlib will be automatically shipped if it exists and there is no remote
             // usrlib.
+            // 如果路径： Flink安装目录/usrlib 目录存在，则将该路径上传到远程文件系统
+            // （前提： flink-conf.yaml中不配置：flink.yarn.provided.usrlib.dir: xxx）
             final Set<File> usrLibShipFiles = new HashSet<>();
             addUsrLibFolderToShipFiles(usrLibShipFiles);
             final List<String> usrLibClassPaths =
@@ -979,16 +1002,18 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                             LocalResourceType.FILE);
             userClassPaths.addAll(usrLibClassPaths);
         }
-
+        // flink.yarn.classpath.include-user-jar,默认为：ORDER
         if (userJarInclusion == YarnConfigOptions.UserJarInclusion.ORDER) {
             systemClassPaths.addAll(userClassPaths);
         }
 
         // normalize classpath by sorting
+        // 按照jar名称排序
         Collections.sort(systemClassPaths);
         Collections.sort(userClassPaths);
 
         // classpath assembler
+        // 将jar包转换成字符串,使用冒号（:）分割，比如： aa.jar:bb.jar
         StringBuilder classPathBuilder = new StringBuilder();
         if (userJarInclusion == YarnConfigOptions.UserJarInclusion.FIRST) {
             for (String userClassPath : userClassPaths) {
@@ -1000,6 +1025,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         }
 
         // Setup jar for ApplicationMaster
+        // 将flink-dist*.jar上传到远程文件系统（HDFS）中
         final YarnLocalResourceDescriptor localResourceDescFlinkJar =
                 fileUploader.uploadFlinkDist(flinkJarPath);
         classPathBuilder
@@ -1008,6 +1034,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         // write job graph to tmp file and add it to local resource
         // TODO: server use user main method to generate job graph
+        //  jobGraph 为null
         if (jobGraph != null) {
             File tmpJobGraphFile = null;
             try {
@@ -1042,17 +1069,22 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         // write out configuration file
         File tmpConfigurationFile = null;
         try {
+            // 临时文件名：/tmp/$appId + "-flink-conf.yaml" + "随机long值" + ".tmp"
             tmpConfigurationFile = File.createTempFile(appId + "-flink-conf.yaml", null);
 
             // remove localhost bind hosts as they render production clusters unusable
+            // 从configuration中移除（前提：这两个配置项的值不是：localhost，
+            // 如果是localhost,则最后会使用0.0.0.0替代）： jobmanager.bind-host 和 taskmanager.bind-host 配置
             removeLocalhostBindHostSetting(configuration, JobManagerOptions.BIND_HOST);
             removeLocalhostBindHostSetting(configuration, TaskManagerOptions.BIND_HOST);
             // this setting is unconditionally overridden anyway, so we remove it for clarity
+            // 从configuration中移除: taskmanager.host 配置
             configuration.removeConfig(TaskManagerOptions.HOST);
-
+            // 将configuration写入到tmpConfigurationFile文件
             BootstrapTools.writeConfiguration(configuration, tmpConfigurationFile);
 
             String flinkConfigKey = "flink-conf.yaml";
+            // 将临时文件拷贝到远程文件系统：$homeDir/.flink/$applicationId/$applicationId + "-flink-conf.yaml" + "随机long值" + ".tmp"
             fileUploader.registerSingleLocalResource(
                     flinkConfigKey,
                     new Path(tmpConfigurationFile.getAbsolutePath()),
@@ -1062,6 +1094,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                     true);
             classPathBuilder.append("flink-conf.yaml").append(File.pathSeparator);
         } finally {
+            // 删除临时文件：/tmp/$appId + "-flink-conf.yaml" + "随机long值" + ".tmp"
             if (tmpConfigurationFile != null && !tmpConfigurationFile.delete()) {
                 LOG.warn("Fail to delete temporary file {}.", tmpConfigurationFile.toPath());
             }
@@ -1079,6 +1112,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         // and KRB5 configuration files. We are adding these files as container local resources for
         // the container
         // applications (JM/TMs) to have proper secure cluster setup
+        // kerberos安全机制
         Path remoteYarnSiteXmlPath = null;
         if (System.getenv("IN_TESTS") != null) {
             File f = new File(System.getenv("YARN_CONF_DIR"), Utils.YARN_SITE_FILE_NAME);
@@ -1152,10 +1186,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                         flinkConfiguration.getString(YarnConfigOptions.LOCALIZED_KEYTAB_PATH);
             }
         }
-
+        // 推断jobmanager相关部分内存大小
         final JobManagerProcessSpec processSpec =
                 JobManagerProcessUtils.processSpecFromConfigWithNewOptionToInterpretLegacyHeap(
                         flinkConfiguration, JobManagerOptions.TOTAL_PROCESS_MEMORY);
+        // 重点：创建AppMaster容器，也即，启动jobmanager组件
         final ContainerLaunchContext amContainer =
                 setupApplicationMasterContainer(yarnClusterEntrypoint, hasKrb5, processSpec);
 
@@ -1214,33 +1249,38 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         // Set up resource type requirements for ApplicationMaster
         Resource capability = Records.newRecord(Resource.class);
+        // yarn容器内存
         capability.setMemory(clusterSpecification.getMasterMemoryMB());
+        // yarn容器虚拟核数
         capability.setVirtualCores(
                 flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
-
+        // yarn程序名称： 如果没有使用-nm 或者 --name指定的话，则使用："Flink session cluster"
         final String customApplicationName = customName != null ? customName : applicationName;
 
         appContext.setApplicationName(customApplicationName);
+        // yarn程序类型： 如果没有使用 -at --applicationType指定的话，则使用："Apache Flink"
         appContext.setApplicationType(applicationType != null ? applicationType : "Apache Flink");
         appContext.setAMContainerSpec(amContainer);
         appContext.setResource(capability);
 
         // Set priority for application
+        // 优先级
         int priorityNum = flinkConfiguration.getInteger(YarnConfigOptions.APPLICATION_PRIORITY);
         if (priorityNum >= 0) {
             Priority priority = Priority.newInstance(priorityNum);
             appContext.setPriority(priority);
         }
-
+        // yarn队列
         if (yarnQueue != null) {
             appContext.setQueue(yarnQueue);
         }
-
+        // yarn节点label
         setApplicationNodeLabel(appContext);
-
+        // yarn tags
         setApplicationTags(appContext);
 
         // add a hook to clean up in case deployment fails
+        // 注册JVM关闭回调函数：用于异常失败时，处理失败以后的一些操作
         Thread deploymentFailureHook =
                 new DeploymentFailureHook(yarnApplication, fileUploader.getApplicationDir());
         Runtime.getRuntime().addShutdownHook(deploymentFailureHook);
@@ -1346,7 +1386,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                 new Path(configuredStagingDir).getFileSystem(defaultFileSystem.getConf());
         return stagingDirFs.makeQualified(new Path(configuredStagingDir));
     }
-
+    // 获取文件副本数量：默认为3
     private int getFileReplication() {
         final int yarnFileReplication =
                 yarnConfiguration.getInt(
@@ -1784,6 +1824,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
     }
 
     @VisibleForTesting
+    // 将Flink插件目录： Flink安装目录/plugins 添加到effectiveShipFiles
     void addPluginsFoldersToShipFiles(Collection<File> effectiveShipFiles) {
         final Optional<File> pluginsDir = PluginConfig.getPluginsDir();
         pluginsDir.ifPresent(effectiveShipFiles::add);
@@ -1794,43 +1835,56 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         // ------------------ Prepare Application Master Container  ------------------------------
 
         // respect custom JVM options in the YAML file
+        // 通用jvm参数：env.java.opts
         String javaOpts = flinkConfiguration.getString(CoreOptions.FLINK_JVM_OPTIONS);
+        // 启动jobmanager jvm参数：env.java.opts.jobmanager
         if (flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS).length() > 0) {
             javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS);
         }
 
         // krb5.conf file will be available as local resource in JM/TM container
+        // 是否开启Krb5安全认证
         if (hasKrb5) {
             javaOpts += " -Djava.security.krb5.conf=krb5.conf";
         }
 
         // Set up the container launch context for the application master
+        // 创建容器启动上下文
         ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
-
+        // 进程启动命令
         final Map<String, String> startCommandValues = new HashMap<>();
         startCommandValues.put("java", "$JAVA_HOME/bin/java");
 
+        // 生成jvm参数内存相关参数: -Xmx -Xms -XX:MaxMetaspaceSize 或者 -XX:MaxDirectMemorySize
         String jvmHeapMem =
                 JobManagerProcessUtils.generateJvmParametersStr(processSpec, flinkConfiguration);
         startCommandValues.put("jvmmem", jvmHeapMem);
-
+        // jvmopts
         startCommandValues.put("jvmopts", javaOpts);
+        // 生成日志文件相关参数：-Dlog.file=<LOG_DIR>/jobmanager.log -Dlog4j.configuration=file:log4j.properties -Dlog4j.configurationFile=file:log4j.properties
+        // 如果log4j不存在，则回退到logback
         startCommandValues.put(
                 "logging", YarnLogConfigUtil.getLoggingYarnCommand(flinkConfiguration));
-
+        // 启动类： org.apache.flink.yarn.entrypoint.YarnSessionClusterEntrypoint
         startCommandValues.put("class", yarnClusterEntrypoint);
         startCommandValues.put(
                 "redirects",
+                // 普通日志输出到：jobmanager.out
                 "1> "
                         + ApplicationConstants.LOG_DIR_EXPANSION_VAR
                         + "/jobmanager.out "
+                        // 错误日志输出到：jobmanager.err
                         + "2> "
                         + ApplicationConstants.LOG_DIR_EXPANSION_VAR
                         + "/jobmanager.err");
+        // 获取内存相关的动态配置, xxb ： 最后的b表达单位：byte
+        // -D jobmanager.memory.heap.size=xxb -Djobmanager.memory.off-heap.size=xxb -D jobmanager.memory.jvm-metaspace.size=xxb
+        // -D jobmanager.memory.jvm-overhead.min=xxb -D jobmanager.memory.jvm-overhead.max=xxb
         String dynamicParameterListStr =
                 JobManagerProcessUtils.generateDynamicConfigsStr(processSpec);
         startCommandValues.put("args", dynamicParameterListStr);
-
+        // 如果配置了： yarn.container-start-command-template 则使用配置的值，
+        // 否则使用默认值：%java% %jvmmem% %jvmopts% %logging% %class% %args% %redirects%
         final String commandTemplate =
                 flinkConfiguration.getString(
                         ConfigConstants.YARN_CONTAINER_START_COMMAND_TEMPLATE,

@@ -112,15 +112,19 @@ public class JobManagerFlinkMemoryUtils implements FlinkMemoryUtils<JobManagerFl
     @Override
     public JobManagerFlinkMemory deriveFromTotalFlinkMemory(
             Configuration config, MemorySize totalFlinkMemorySize) {
+        // 非堆内存（jobmanager.memory.off-heap.size）： 默认128M
         MemorySize offHeapMemorySize =
                 ProcessMemoryUtils.getMemorySizeFromConfig(
                         config, JobManagerOptions.OFF_HEAP_MEMORY);
+        // 总Flink内存小于等于非堆内存，则抛出异常
         if (totalFlinkMemorySize.compareTo(offHeapMemorySize) < 1) {
             throw new IllegalConfigurationException(
                     "The configured Total Flink Memory (%s) is less than the configured Off-heap Memory (%s).",
                     totalFlinkMemorySize.toHumanReadableString(),
                     offHeapMemorySize.toHumanReadableString());
         }
+        // jvm堆内存(jobmanager.memory.heap.size) = Flink总内存 - jvm非堆内存
+        // jvm堆内存不能少于 128M
         MemorySize derivedJvmHeapMemorySize = totalFlinkMemorySize.subtract(offHeapMemorySize);
         return createJobManagerFlinkMemory(derivedJvmHeapMemorySize, offHeapMemorySize);
     }

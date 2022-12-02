@@ -634,7 +634,7 @@ public final class Utils {
 
         return Resource.newInstance(unitMemMB, unitVcore);
     }
-
+    // 获取yarn远程共享lib目录
     public static List<Path> getQualifiedRemoteProvidedLibDirs(
             org.apache.flink.configuration.Configuration configuration,
             YarnConfiguration yarnConfiguration)
@@ -647,7 +647,7 @@ public final class Utils {
                     return path.getFileSystem(yarnConfiguration).makeQualified(path);
                 });
     }
-
+    // 获取yarn共享lib目录
     private static List<Path> getRemoteSharedLibPaths(
             org.apache.flink.configuration.Configuration configuration,
             FunctionWithException<String, Path, IOException> strToPathMapper)

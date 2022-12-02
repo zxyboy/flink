@@ -70,19 +70,30 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
     }
 
     public CommonProcessMemorySpec<FM> memoryProcessSpecFromConfig(Configuration config) {
+
         if (options.getRequiredFineGrainedOptions().stream().allMatch(config::contains)) {
+            // 一定配置了jobmanager堆内存：jobmanager.memory.heap.size
+            // 但是有可能配置了jjobmanager.memory.flink.size， 也有可能没有配置
+            // 但是有可能配置了jobmanager.memory.process.size， 也有可能没有配置
             // all internal memory options are configured, use these to derive total Flink and
             // process memory
             return deriveProcessSpecWithExplicitInternalMemory(config);
         } else if (config.contains(options.getTotalFlinkMemoryOption())) {
+            // 一定配置了jobmanager总Flink内存：jobmanager.memory.flink.size
+            // 一定没有配置jobmanager堆内存：jobmanager.memory.heap.size
+            // 但是有可能配置了jobmanager.memory.process.size， 也有可能没有配置
             // internal memory options are not configured, total Flink memory is configured,
             // derive from total flink memory
             return deriveProcessSpecWithTotalFlinkMemory(config);
         } else if (config.contains(options.getTotalProcessMemoryOption())) {
+            //  一定配置了jobmanager总进程内存：jobmanager.memory.process.size
+            //  一定没有配置jobmanager堆内存：jobmanager.memory.heap.size
+            //  一定没有配置jobmanager总Flink内存：jobmanager.memory.flink.size
             // total Flink memory is not configured, total process memory is configured,
             // derive from total process memory
             return deriveProcessSpecWithTotalProcessMemory(config);
         }
+        // 以上3者都没有配置
         return failBecauseRequiredOptionsNotConfigured();
     }
 
@@ -105,16 +116,29 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                 deriveJvmMetaspaceAndOverheadFromTotalFlinkMemory(config, totalFlinkMemorySize);
         return new CommonProcessMemorySpec<>(flinkInternalMemory, jvmMetaspaceAndOverhead);
     }
-
+    // 根据flink总进程内存（jobmanager.memory.process.size）推断其他部分内存配置
+    // 内存关系:
+    //  jobmanager总进程内存大小（已知） = Flink总内存大小 + jvm元空间内存大小(已知) + jvm开销内存大小（已知）
+    //  Flink总内存大小 = jvm堆内存大小 + jvm非堆内存大小（已知）
+    //  jvm开销内存大小 =
+    //      1. 如果 flink总进程内存大小 * fraction > jvm开销最大内存大小， 则取jvm开销最大内存大小
+    //      2. 如果 flink总进程内存大小 * fraction < jvm开销最小内存大小， 则取jvm开销最小内存大小
+    //      3. 如果  jvm开销最小内存大小 <= flink总进程内存大小 * fraction <= jvm开销最大内存大小, 则取：flink总进程内存大小 * fraction
     private CommonProcessMemorySpec<FM> deriveProcessSpecWithTotalProcessMemory(
             Configuration config) {
+        // jobmanager总进程内存 : jobmanager.memory.process.size
         MemorySize totalProcessMemorySize =
                 getMemorySizeFromConfig(config, options.getTotalProcessMemoryOption());
+        // 推断出元空间和jvm开销内存大小
         JvmMetaspaceAndOverhead jvmMetaspaceAndOverhead =
                 deriveJvmMetaspaceAndOverheadWithTotalProcessMemory(config, totalProcessMemorySize);
+        // flink总内存（jobmanager.memory.flink.size）：jobmanager.memory.process.size -（元空间 + jvm开销内存大小）
         MemorySize totalFlinkMemorySize =
                 totalProcessMemorySize.subtract(
                         jvmMetaspaceAndOverhead.getTotalJvmMetaspaceAndOverheadSize());
+        // flink总内存 = jvm堆内存 + jvm非堆内存
+        // 根据flink总内存推断出 => jvm堆内存 和 jvm非堆内存
+        // FM => JobManagerFlinkMemory
         FM flinkInternalMemory =
                 flinkMemoryUtils.deriveFromTotalFlinkMemory(config, totalFlinkMemorySize);
         return new CommonProcessMemorySpec<>(flinkInternalMemory, jvmMetaspaceAndOverhead);
@@ -133,11 +157,13 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                         options.getTotalFlinkMemoryOption(),
                         options.getTotalProcessMemoryOption()));
     }
-
+    // 推断出元空间和jvm开销内存大小
     private JvmMetaspaceAndOverhead deriveJvmMetaspaceAndOverheadWithTotalProcessMemory(
             Configuration config, MemorySize totalProcessMemorySize) {
+        // 得到元空间内存大小：jobmanager.memory.jvm-metaspace.size ，默认：256M
         MemorySize jvmMetaspaceSize =
                 getMemorySizeFromConfig(config, options.getJvmOptions().getJvmMetaspaceOption());
+        // 根据fraction推测出jvm开销内存大小
         MemorySize jvmOverheadSize =
                 deriveWithFraction(
                         "jvm overhead memory",
@@ -145,7 +171,7 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                         getJvmOverheadRangeFraction(config));
         JvmMetaspaceAndOverhead jvmMetaspaceAndOverhead =
                 new JvmMetaspaceAndOverhead(jvmMetaspaceSize, jvmOverheadSize);
-
+        // jobmanager.memory.jvm-metaspace.size + jvm开销内存 > jobmanager总进程内存，则抛出异常
         if (jvmMetaspaceAndOverhead.getTotalJvmMetaspaceAndOverheadSize().getBytes()
                 > totalProcessMemorySize.getBytes()) {
             throw new IllegalConfigurationException(
@@ -261,12 +287,15 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
             }
         }
     }
-
+    // 获取jvm开销内存大小区间
     private RangeFraction getJvmOverheadRangeFraction(Configuration config) {
+        // jvm开销最小内存大小：jobmanager.memory.jvm-overhead.min，默认：192M
         MemorySize minSize =
                 getMemorySizeFromConfig(config, options.getJvmOptions().getJvmOverheadMin());
+        // jvm开销最大内存大小：jobmanager.memory.jvm-overhead.max，默认：1G
         MemorySize maxSize =
                 getMemorySizeFromConfig(config, options.getJvmOptions().getJvmOverheadMax());
+
         return getRangeFraction(
                 minSize, maxSize, options.getJvmOptions().getJvmOverheadFraction(), config);
     }
@@ -281,12 +310,13 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                     "Cannot read memory size from config option '" + option.key() + "'.", t);
         }
     }
-
+    // jvm开销内存大小区间
     public static RangeFraction getRangeFraction(
             MemorySize minSize,
             MemorySize maxSize,
             ConfigOption<Float> fractionOption,
             Configuration config) {
+        // jvm开销占比：jobmanager.memory.jvm-overhead.fraction，默认：0.1
         double fraction = config.getFloat(fractionOption);
         try {
             return new RangeFraction(minSize, maxSize, fraction);
@@ -301,9 +331,11 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                     e);
         }
     }
-
+    // 根据fraction推测出jvm开销内存大小
     public static MemorySize deriveWithFraction(
             String memoryDescription, MemorySize base, RangeFraction rangeFraction) {
+        // jvm开销内存占比转换为内存大小 = jvm进程总内存 * jvm开销占比
+        //                           = jvm进程总内存 * 0.1
         MemorySize relative = base.multiply(rangeFraction.getFraction());
         return capToMinMax(memoryDescription, relative, rangeFraction);
     }
@@ -315,10 +347,11 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                 base.multiply(rangeFraction.getFraction() / (1 - rangeFraction.getFraction()));
         return capToMinMax(memoryDescription, relative, rangeFraction);
     }
-
+    // 比较jvm开销内存大小
     private static MemorySize capToMinMax(
             String memoryDescription, MemorySize relative, RangeFraction rangeFraction) {
         long size = relative.getBytes();
+        // relative比最大值还大，则取最大值
         if (size > rangeFraction.getMaxSize().getBytes()) {
             LOG.info(
                     "The derived from fraction {} ({}) is greater than its max value {}, max value will be used instead",
@@ -327,6 +360,7 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                     rangeFraction.getMaxSize().toHumanReadableString());
             size = rangeFraction.getMaxSize().getBytes();
         } else if (size < rangeFraction.getMinSize().getBytes()) {
+            // relative比最小值还小，则取最小值
             LOG.info(
                     "The derived from fraction {} ({}) is less than its min value {}, min value will be used instead",
                     memoryDescription,
@@ -334,26 +368,27 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
                     rangeFraction.getMinSize().toHumanReadableString());
             size = rangeFraction.getMinSize().getBytes();
         }
+        // relative在最小值和最大值之间，则取relative值
         return new MemorySize(size);
     }
 
     public static String generateJvmParametersStr(ProcessMemorySpec processSpec) {
         return generateJvmParametersStr(processSpec, true);
     }
-
+    // 产生jvm参数
     public static String generateJvmParametersStr(
             ProcessMemorySpec processSpec, boolean enableDirectMemoryLimit) {
         final StringBuilder jvmArgStr = new StringBuilder();
-
+        // jvm堆内存参数
         jvmArgStr.append("-Xmx").append(processSpec.getJvmHeapMemorySize().getBytes());
         jvmArgStr.append(" -Xms").append(processSpec.getJvmHeapMemorySize().getBytes());
-
+        // 如果开启直接内存，设置直接内存大小 = 非堆内存
         if (enableDirectMemoryLimit) {
             jvmArgStr
                     .append(" -XX:MaxDirectMemorySize=")
                     .append(processSpec.getJvmDirectMemorySize().getBytes());
         }
-
+        // 设置元空间参数
         jvmArgStr
                 .append(" -XX:MaxMetaspaceSize=")
                 .append(processSpec.getJvmMetaspaceSize().getBytes());

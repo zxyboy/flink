@@ -56,8 +56,9 @@ public class PluginConfig {
                 getPluginsDir().map(File::toPath),
                 CoreOptions.getPluginParentFirstLoaderPatterns(configuration));
     }
-
+    // 获取flink插件目录：Flink安装目录/plugins
     public static Optional<File> getPluginsDir() {
+        // 插件目录：Flink安装目录/plugins
         String pluginsDir =
                 System.getenv()
                         .getOrDefault(

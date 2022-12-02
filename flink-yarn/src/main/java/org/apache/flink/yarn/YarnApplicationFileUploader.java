@@ -161,9 +161,9 @@ class YarnApplicationFileUploader implements AutoCloseable {
             final boolean whetherToAddToRemotePaths,
             final boolean whetherToAddToEnvShipResourceList)
             throws IOException {
-
+        // 将localPath添加到remotePaths
         addToRemotePaths(whetherToAddToRemotePaths, resourcePath);
-
+        // resourcePath是远程路径
         if (Utils.isRemotePath(resourcePath.toString())) {
             final FileStatus fileStatus = fileSystem.getFileStatus(resourcePath);
             LOG.debug("Using remote file {} to register local resource", fileStatus.getPath());
@@ -175,8 +175,9 @@ class YarnApplicationFileUploader implements AutoCloseable {
             localResources.put(key, descriptor.toLocalResource());
             return descriptor;
         }
-
+        // resourcePath是本地文件路径
         final File localFile = new File(resourcePath.toUri().getPath());
+        // 将本地文件上传到远程文件系统
         final Tuple2<Path, Long> remoteFileInfo =
                 uploadLocalFileToRemote(resourcePath, relativeDstPath);
         final YarnLocalResourceDescriptor descriptor =
@@ -191,21 +192,23 @@ class YarnApplicationFileUploader implements AutoCloseable {
         localResources.put(key, descriptor.toLocalResource());
         return descriptor;
     }
-
+    // 将本地文件完整上传到远程文件系统，
+    // 如果成功，则返回（远程文件路径，远程文件最后修改时间）；
+    // 如果失败，则返回（远程文件路径，本地文件最后修改时间）；
     Tuple2<Path, Long> uploadLocalFileToRemote(
             final Path localSrcPath, final String relativeDstPath) throws IOException {
 
         final File localFile = new File(localSrcPath.toUri().getPath());
         checkArgument(
                 !localFile.isDirectory(), "File to copy cannot be a directory: " + localSrcPath);
-
+        // 上传文件
         final Path dst = copyToRemoteApplicationDir(localSrcPath, relativeDstPath, fileReplication);
 
         // Note: If we directly used registerLocalResource(FileSystem, Path) here, we would access
         // the remote
         //       file once again which has problems with eventually consistent read-after-write file
         //       systems. Instead, we decide to wait until the remote file be available.
-
+        // 等待文件上传完成
         final FileStatus[] fss = waitForTransferToComplete(dst);
         if (fss == null || fss.length <= 0) {
             LOG.debug(
@@ -230,13 +233,15 @@ class YarnApplicationFileUploader implements AutoCloseable {
      * @param resourceType type of the resource, which can be one of FILE, PATTERN, or ARCHIVE
      * @return list of class paths with the proper resource keys from the registration
      */
+    // 将本地shipFiles文件或者文件夹上传到远程文件系统，并返回其路径
     List<String> registerMultipleLocalResources(
             final Collection<Path> shipFiles,
             final String localResourcesDirectory,
             final LocalResourceType resourceType)
             throws IOException {
-
+        // 本地路径
         final List<Path> localPaths = new ArrayList<>();
+        // 本地路径将要上传到hdfs上的路径
         final List<Path> relativePaths = new ArrayList<>();
         for (Path shipFile : shipFiles) {
             if (Utils.isRemotePath(shipFile.toString())) {
@@ -256,11 +261,14 @@ class YarnApplicationFileUploader implements AutoCloseable {
                 }
             } else {
                 final File file = new File(shipFile.toUri().getPath());
+                // 目录
                 if (file.isDirectory()) {
                     final java.nio.file.Path shipPath = file.toPath().toRealPath();
                     final java.nio.file.Path parentPath = shipPath.getParent();
+                    // 递归的得到目录下所有文件
                     Collection<java.nio.file.Path> paths =
                             FileUtils.listFilesInDirectory(shipPath, path -> true);
+                    // 将目录下所有文件保存到localPaths以及relativePaths
                     for (java.nio.file.Path javaPath : paths) {
                         localPaths.add(new Path(javaPath.toUri()));
                         relativePaths.add(
@@ -280,8 +288,10 @@ class YarnApplicationFileUploader implements AutoCloseable {
         for (int i = 0; i < localPaths.size(); i++) {
             final Path localPath = localPaths.get(i);
             final Path relativePath = relativePaths.get(i);
+            // 如果不是flink-dist*.jar
             if (!isFlinkDistJar(relativePath.getName())) {
                 final String key = relativePath.toString();
+                // 将本地文件上传到远程文件系统
                 final YarnLocalResourceDescriptor resourceDescriptor =
                         registerSingleLocalResource(
                                 key,
@@ -290,7 +300,7 @@ class YarnApplicationFileUploader implements AutoCloseable {
                                 resourceType,
                                 true,
                                 true);
-
+                // 如果注册为本地资源（可见性为PUBLIC）,YARN-SESSION:这里不是PUBLIC
                 if (!resourceDescriptor.alreadyRegisteredAsLocalResource()) {
                     if (key.endsWith("jar")) {
                         archives.add(relativePath.toString());
@@ -321,7 +331,7 @@ class YarnApplicationFileUploader implements AutoCloseable {
                             + " has to also include the lib/, plugin/ and flink-dist jar."
                             + " In other case, it cannot be used.");
         }
-
+        // yarn-session 走这里
         flinkDist =
                 registerSingleLocalResource(
                         localJarPath.getName(),
@@ -378,14 +388,16 @@ class YarnApplicationFileUploader implements AutoCloseable {
         return new YarnApplicationFileUploader(
                 fileSystem, homeDirectory, providedLibDirs, applicationId, fileReplication);
     }
-
+    // 将本地文件拷贝到远程文件系统，并返回上传到远程文件系统上的文件路径
     private Path copyToRemoteApplicationDir(
             final Path localSrcPath, final String relativeDstPath, final int replicationFactor)
             throws IOException {
-
+        // 得到待上传远程目录： $homeDir/.flink/$applicationId/
         final Path applicationDir = getApplicationDirPath(homeDir, applicationId);
+        // 本地文件对应远程文件路径： $relativeDstPath/$localSrcPath
         final String suffix =
                 (relativeDstPath.isEmpty() ? "" : relativeDstPath + "/") + localSrcPath.getName();
+        // 最终远程目录：$homeDir/.flink/$applicationId/$relativeDstPath/$localSrcPath
         final Path dst = new Path(applicationDir, suffix);
 
         LOG.debug(
@@ -393,12 +405,13 @@ class YarnApplicationFileUploader implements AutoCloseable {
                 localSrcPath,
                 dst,
                 replicationFactor);
-
+        // 调用文件系统接口，正式拷贝本地文件到远程HDFS
         fileSystem.copyFromLocalFile(false, true, localSrcPath, dst);
+        // 设置HDFS文件副本数量
         fileSystem.setReplication(dst, (short) replicationFactor);
         return dst;
     }
-
+    // 等到本地文件上传远程结束
     private FileStatus[] waitForTransferToComplete(Path dst) throws IOException {
         final int noOfRetries = 3;
         final int retryDelayMs = 100;

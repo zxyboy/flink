@@ -104,14 +104,16 @@ public class JobManagerProcessUtils {
                 MemorySize.ofMebiBytes(totalProcessMemoryMb));
         return processSpecFromConfig(configuration);
     }
-
+    // 生成jvm参数内存相关参数
     public static String generateJvmParametersStr(
             JobManagerProcessSpec processSpec, Configuration configuration) {
         return ProcessMemoryUtils.generateJvmParametersStr(
                 processSpec,
                 configuration.getBoolean(JobManagerOptions.JVM_DIRECT_MEMORY_LIMIT_ENABLED));
     }
-
+    // 获取内存相关的动态配置
+    // -D jobmanager.memory.heap.size=xxb -Djobmanager.memory.off-heap.size=xxb -D jobmanager.memory.jvm-metaspace.size=xxb
+    // -D jobmanager.memory.jvm-overhead.min=xxb -D jobmanager.memory.jvm-overhead.max=xxb
     public static String generateDynamicConfigsStr(
             final JobManagerProcessSpec jobManagerProcessSpec) {
         final Map<String, String> config = new HashMap<>();

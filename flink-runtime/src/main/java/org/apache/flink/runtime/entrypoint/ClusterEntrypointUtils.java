@@ -84,7 +84,9 @@ public final class ClusterEntrypointUtils {
      *     none
      */
     public static Optional<File> tryFindUserLibDirectory() {
+        // Flink安装目录
         final File flinkHomeDirectory = deriveFlinkHomeDirectoryFromLibDirectory();
+        // 用户jar包位置：Flink安装目录/usrlib
         final File usrLibDirectory =
                 new File(flinkHomeDirectory, ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR);
 
