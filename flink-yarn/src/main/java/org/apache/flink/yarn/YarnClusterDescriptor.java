@@ -1829,7 +1829,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         final Optional<File> pluginsDir = PluginConfig.getPluginsDir();
         pluginsDir.ifPresent(effectiveShipFiles::add);
     }
-
+    // 创建AppMaster
     ContainerLaunchContext setupApplicationMasterContainer(
             String yarnClusterEntrypoint, boolean hasKrb5, JobManagerProcessSpec processSpec) {
         // ------------------ Prepare Application Master Container  ------------------------------
@@ -1889,6 +1889,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                 flinkConfiguration.getString(
                         ConfigConstants.YARN_CONTAINER_START_COMMAND_TEMPLATE,
                         ConfigConstants.DEFAULT_YARN_CONTAINER_START_COMMAND_TEMPLATE);
+        // 启动命令
         final String amCommand =
                 BootstrapTools.getStartCommand(commandTemplate, startCommandValues);
 
