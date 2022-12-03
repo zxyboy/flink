@@ -117,8 +117,10 @@ public final class Utils {
     private static final int DEFAULT_YARN_RM_INCREMENT_ALLOCATION_VCORES = 1;
 
     public static void setupYarnClassPath(Configuration conf, Map<String, String> appMasterEnv) {
+        // 将classpath类路径： _FLINK_CLASSPATH
         addToEnvironment(
                 appMasterEnv, Environment.CLASSPATH.name(), appMasterEnv.get(ENV_FLINK_CLASSPATH));
+        // 将配置： yarn.application.classpath(如果配置了，没有使用默认值：new String[]{Environment.HADOOP_CONF_DIR.$(), Environment.HADOOP_COMMON_HOME.$() + "/share/hadoop/common/*", Environment.HADOOP_COMMON_HOME.$() + "/share/hadoop/common/lib/*", Environment.HADOOP_HDFS_HOME.$() + "/share/hadoop/hdfs/*", Environment.HADOOP_HDFS_HOME.$() + "/share/hadoop/hdfs/lib/*", Environment.HADOOP_YARN_HOME.$() + "/share/hadoop/yarn/*", Environment.HADOOP_YARN_HOME.$() + "/share/hadoop/yarn/lib/*"})， 添加到appMasterEnv
         String[] applicationClassPathEntries =
                 conf.getStrings(
                         YarnConfiguration.YARN_APPLICATION_CLASSPATH,

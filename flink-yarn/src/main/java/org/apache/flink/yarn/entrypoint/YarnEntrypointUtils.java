@@ -52,19 +52,22 @@ public class YarnEntrypointUtils {
 
     public static Configuration loadConfiguration(
             String workingDirectory, Configuration dynamicParameters, Map<String, String> env) {
+        // 从workingDirectory目录下加载flink-conf.yaml配置文件，并将dynamicParameters合并后返回
         final Configuration configuration =
                 GlobalConfiguration.loadConfiguration(workingDirectory, dynamicParameters);
 
         final String keytabPrincipal = env.get(YarnConfigKeys.KEYTAB_PRINCIPAL);
-
+        // yarn ResourceManager分别运行AppMaster的节点
         final String hostname = env.get(ApplicationConstants.Environment.NM_HOST.key());
         Preconditions.checkState(
                 hostname != null,
                 "ApplicationMaster hostname variable %s not set",
                 ApplicationConstants.Environment.NM_HOST.key());
-
+        // 动态配置： jobmanager.rpc.address ： $hostname
         configuration.setString(JobManagerOptions.ADDRESS, hostname);
+        // 动态配置： rest.address ： $hostname
         configuration.setString(RestOptions.ADDRESS, hostname);
+        // 动态配置： rest.bind-address ： $hostname
         configuration.setString(RestOptions.BIND_ADDRESS, hostname);
 
         // if a web monitor shall be started, set the port to random binding
@@ -108,7 +111,10 @@ public class YarnEntrypointUtils {
 
     public static void logYarnEnvironmentInformation(Map<String, String> env, Logger log)
             throws IOException {
-        final String yarnClientUsername = env.get(YarnConfigKeys.ENV_HADOOP_USER_NAME);
+        // flink
+        // final String yarnClientUsername = env.get(YarnConfigKeys.ENV_HADOOP_USER_NAME);
+        String yarnClientUsername = env.get(YarnConfigKeys.ENV_HADOOP_USER_NAME);
+        yarnClientUsername = "flink";
         Preconditions.checkArgument(
                 yarnClientUsername != null,
                 "YARN client user name environment variable %s not set",

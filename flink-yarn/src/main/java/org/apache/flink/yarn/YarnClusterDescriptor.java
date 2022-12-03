@@ -1962,32 +1962,43 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
             throws IOException {
         final Map<String, String> env = new HashMap<>();
         // set user specified app master environment variables
+        // 将flinkConfiguration中配置前缀为：containerized.master.env. ， 去掉前缀，添加到env
         env.putAll(
                 ConfigurationUtils.getPrefixedKeyValuePairs(
                         ResourceManagerOptions.CONTAINERIZED_MASTER_ENV_PREFIX,
                         this.flinkConfiguration));
         // set Flink app class path
+        // _FLINK_CLASSPATH
         env.put(ENV_FLINK_CLASSPATH, classPathStr);
         // Set FLINK_LIB_DIR to `lib` folder under working dir in container
+        // FLINK_LIB_DIR : ./lib
         env.put(ENV_FLINK_LIB_DIR, Path.CUR_DIR + "/" + ConfigConstants.DEFAULT_FLINK_LIB_DIR);
         // Set FLINK_OPT_DIR to `opt` folder under working dir in container
+        // FLINK_OPT_DIR : ./opt
         env.put(ENV_FLINK_OPT_DIR, Path.CUR_DIR + "/" + ConfigConstants.DEFAULT_FLINK_OPT_DIR);
         // set Flink on YARN internal configuration values
+        // _FLINK_DIST_JAR : HDFS中flink-dist*.jar位置
         env.put(YarnConfigKeys.FLINK_DIST_JAR, localFlinkJarStr);
+        // _APP_ID : 应用id
         env.put(YarnConfigKeys.ENV_APP_ID, appIdStr);
+        // _CLIENT_HOME_DIR : 远程hdfs家目录： /user/flink
         env.put(YarnConfigKeys.ENV_CLIENT_HOME_DIR, fileUploader.getHomeDir().toString());
+        // _CLIENT_SHIP_FILES : xx.jar;x.jar;...
         env.put(
                 YarnConfigKeys.ENV_CLIENT_SHIP_FILES,
                 encodeYarnLocalResourceDescriptorListToString(
                         fileUploader.getEnvShipResourceList()));
+        // _FLINK_YARN_FILES : /user/flink/$appId
         env.put(
                 YarnConfigKeys.FLINK_YARN_FILES,
                 fileUploader.getApplicationDir().toUri().toString());
         // https://github.com/apache/hadoop/blob/trunk/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/markdown/YarnApplicationSecurity.md#identity-on-an-insecure-cluster-hadoop_user_name
+        // HADOOP_USER_NAME : flink
         env.put(
                 YarnConfigKeys.ENV_HADOOP_USER_NAME,
                 UserGroupInformation.getCurrentUser().getUserName());
         // set classpath from YARN configuration
+        //
         Utils.setupYarnClassPath(this.yarnConfiguration, env);
         return env;
     }

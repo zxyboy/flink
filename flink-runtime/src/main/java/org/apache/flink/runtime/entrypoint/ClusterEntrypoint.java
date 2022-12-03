@@ -213,12 +213,15 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     public CompletableFuture<ApplicationStatus> getTerminationFuture() {
         return terminationFuture;
     }
-
+    // 启动Flink集群
     public void startCluster() throws ClusterEntrypointException {
         LOG.info("Starting {}.", getClass().getSimpleName());
 
         try {
+            // 如果配置了： cluster.intercept-user-system-exit 和 cluster.processes.halt-on-fatal-error
+            // 开启flink安全管理器，则进行设置
             FlinkSecurityManager.setFromConfiguration(configuration);
+            // 创建插件管理器
             PluginManager pluginManager =
                     PluginUtils.createPluginManagerFromRootFolder(configuration);
             configureFileSystems(configuration, pluginManager);
@@ -275,7 +278,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
         return SecurityUtils.getInstalledContext();
     }
-
+    // 启动Flink集群
     private void runCluster(Configuration configuration, PluginManager pluginManager)
             throws Exception {
         synchronized (lock) {

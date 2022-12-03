@@ -84,9 +84,10 @@ public class FlinkSecurityManager extends SecurityManager {
      */
     @VisibleForTesting
     static FlinkSecurityManager fromConfiguration(Configuration configuration) {
+        // cluster.intercept-user-system-exit
         final ClusterOptions.UserSystemExitMode userSystemExitMode =
                 configuration.get(ClusterOptions.INTERCEPT_USER_SYSTEM_EXIT);
-
+        // cluster.processes.halt-on-fatal-error
         boolean haltOnSystemExit = configuration.get(ClusterOptions.HALT_ON_FATAL_ERROR);
 
         // If no check is needed, return null so that caller can avoid setting security manager not

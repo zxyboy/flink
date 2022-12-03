@@ -75,18 +75,19 @@ public class YarnSessionClusterEntrypoint extends SessionClusterEntrypoint {
         } catch (IOException e) {
             LOG.warn("Could not log YARN environment information.", e);
         }
-
+        // 将args中的参数解析成Configuration
         final Configuration dynamicParameters =
                 ClusterEntrypointUtils.parseParametersOrExit(
                         args,
                         new DynamicParametersConfigurationParserFactory(),
                         YarnSessionClusterEntrypoint.class);
+        // 重写一些参数
         final Configuration configuration =
                 YarnEntrypointUtils.loadConfiguration(workingDirectory, dynamicParameters, env);
 
         YarnSessionClusterEntrypoint yarnSessionClusterEntrypoint =
                 new YarnSessionClusterEntrypoint(configuration);
-
+        // 开始运行
         ClusterEntrypoint.runClusterEntrypoint(yarnSessionClusterEntrypoint);
     }
 }
