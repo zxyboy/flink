@@ -17,6 +17,10 @@
 
 package org.apache.flink.streaming.api.environment;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
+import com.esotericsoftware.kryo.Serializer;
+
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.Public;
@@ -110,10 +114,6 @@ import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.TernaryBoolean;
 import org.apache.flink.util.WrappingRuntimeException;
 
-import com.esotericsoftware.kryo.Serializer;
-
-import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
@@ -131,7 +131,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
+import javax.annotation.Nullable;
 
 /**
  * The StreamExecutionEnvironment is the context in which a streaming program is executed. A {@link
@@ -160,12 +160,10 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      *
      * @deprecated This constant does not fit well to batch runtime mode.
      */
-    @Deprecated
-    public static final String DEFAULT_JOB_NAME = StreamGraphGenerator.DEFAULT_STREAMING_JOB_NAME;
+    @Deprecated public static final String DEFAULT_JOB_NAME = StreamGraphGenerator.DEFAULT_STREAMING_JOB_NAME;
 
     /** The time characteristic that is used if none other is set. */
-    private static final TimeCharacteristic DEFAULT_TIME_CHARACTERISTIC =
-            TimeCharacteristic.EventTime;
+    private static final TimeCharacteristic DEFAULT_TIME_CHARACTERISTIC = TimeCharacteristic.EventTime;
 
     /**
      * The environment of the context (local by default, cluster if invoked through command line).
@@ -173,8 +171,8 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     private static StreamExecutionEnvironmentFactory contextEnvironmentFactory = null;
 
     /** The ThreadLocal used to store {@link StreamExecutionEnvironmentFactory}. */
-    private static final ThreadLocal<StreamExecutionEnvironmentFactory>
-            threadLocalContextEnvironmentFactory = new ThreadLocal<>();
+    private static final ThreadLocal<StreamExecutionEnvironmentFactory> threadLocalContextEnvironmentFactory =
+            new ThreadLocal<>();
 
     /** The default parallelism used when creating a local environment. */
     private static int defaultLocalParallelism = Runtime.getRuntime().availableProcessors();
@@ -207,8 +205,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     /** The time characteristic used by the data streams. */
     private TimeCharacteristic timeCharacteristic = DEFAULT_TIME_CHARACTERISTIC;
 
-    protected final List<Tuple2<String, DistributedCache.DistributedCacheEntry>> cacheFile =
-            new ArrayList<>();
+    protected final List<Tuple2<String, DistributedCache.DistributedCacheEntry>> cacheFile = new ArrayList<>();
 
     private final PipelineExecutorServiceLoader executorServiceLoader;
 
@@ -257,8 +254,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * <p>In addition, this constructor allows specifying the user code {@link ClassLoader}.
      */
     @PublicEvolving
-    public StreamExecutionEnvironment(
-            final Configuration configuration, final ClassLoader userClassloader) {
+    public StreamExecutionEnvironment(final Configuration configuration, final ClassLoader userClassloader) {
         this(new DefaultExecutorServiceLoader(), configuration, userClassloader);
     }
 
@@ -276,8 +272,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
             final ClassLoader userClassloader) {
         this.executorServiceLoader = checkNotNull(executorServiceLoader);
         this.configuration = new Configuration(checkNotNull(configuration));
-        this.userClassloader =
-                userClassloader == null ? getClass().getClassLoader() : userClassloader;
+        this.userClassloader = userClassloader == null ? getClass().getClassLoader() : userClassloader;
 
         // the configuration of a job or an operator can be specified at the following places:
         //     i) at the operator level via e.g. parallelism by using the
@@ -362,8 +357,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      */
     public StreamExecutionEnvironment setMaxParallelism(int maxParallelism) {
         Preconditions.checkArgument(
-                maxParallelism > 0
-                        && maxParallelism <= KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM,
+                maxParallelism > 0 && maxParallelism <= KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM,
                 "maxParallelism is out of bounds 0 < maxParallelism <= "
                         + KeyGroupRangeAssignment.UPPER_BOUND_MAX_PARALLELISM
                         + ". Found: "
@@ -385,14 +379,12 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      */
     @PublicEvolving
     public StreamExecutionEnvironment registerSlotSharingGroup(SlotSharingGroup slotSharingGroup) {
-        final ResourceSpec resourceSpec =
-                SlotSharingGroupUtils.extractResourceSpec(slotSharingGroup);
+        final ResourceSpec resourceSpec = SlotSharingGroupUtils.extractResourceSpec(slotSharingGroup);
         if (!resourceSpec.equals(ResourceSpec.UNKNOWN)) {
             this.slotSharingGroupResources.put(
                     slotSharingGroup.getName(),
                     ResourceProfile.fromResourceSpec(
-                            SlotSharingGroupUtils.extractResourceSpec(slotSharingGroup),
-                            MemorySize.ZERO));
+                            SlotSharingGroupUtils.extractResourceSpec(slotSharingGroup), MemorySize.ZERO));
         }
         return this;
     }
@@ -554,8 +546,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     @Deprecated
     @SuppressWarnings("deprecation")
     @PublicEvolving
-    public StreamExecutionEnvironment enableCheckpointing(
-            long interval, CheckpointingMode mode, boolean force) {
+    public StreamExecutionEnvironment enableCheckpointing(long interval, CheckpointingMode mode, boolean force) {
         checkpointCfg.setCheckpointingMode(mode);
         checkpointCfg.setCheckpointInterval(interval);
         checkpointCfg.setForceCheckpointing(force);
@@ -779,8 +770,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param restartStrategyConfiguration Restart strategy configuration to be set
      */
     @PublicEvolving
-    public void setRestartStrategy(
-            RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration) {
+    public void setRestartStrategy(RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration) {
         config.setRestartStrategy(restartStrategyConfiguration);
     }
 
@@ -837,8 +827,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param type The class of the types serialized with the given serializer.
      * @param serializer The serializer to use.
      */
-    public <T extends Serializer<?> & Serializable> void addDefaultKryoSerializer(
-            Class<?> type, T serializer) {
+    public <T extends Serializer<?> & Serializable> void addDefaultKryoSerializer(Class<?> type, T serializer) {
         config.addDefaultKryoSerializer(type, serializer);
     }
 
@@ -848,8 +837,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param type The class of the types serialized with the given serializer.
      * @param serializerClass The class of the serializer to use.
      */
-    public void addDefaultKryoSerializer(
-            Class<?> type, Class<? extends Serializer<?>> serializerClass) {
+    public void addDefaultKryoSerializer(Class<?> type, Class<? extends Serializer<?>> serializerClass) {
         config.addDefaultKryoSerializer(type, serializerClass);
     }
 
@@ -863,8 +851,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param type The class of the types serialized with the given serializer.
      * @param serializer The serializer to use.
      */
-    public <T extends Serializer<?> & Serializable> void registerTypeWithKryoSerializer(
-            Class<?> type, T serializer) {
+    public <T extends Serializer<?> & Serializable> void registerTypeWithKryoSerializer(Class<?> type, T serializer) {
         config.registerTypeWithKryoSerializer(type, serializer);
     }
 
@@ -876,8 +863,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param serializerClass The class of the serializer to use.
      */
     @SuppressWarnings("rawtypes")
-    public void registerTypeWithKryoSerializer(
-            Class<?> type, Class<? extends Serializer> serializerClass) {
+    public void registerTypeWithKryoSerializer(Class<?> type, Class<? extends Serializer> serializerClass) {
         config.registerTypeWithKryoSerializer(type, serializerClass);
     }
 
@@ -984,14 +970,9 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         configuration
                 .getOptional(StateChangelogOptions.ENABLE_STATE_CHANGE_LOG)
                 .ifPresent(this::enableChangelogStateBackend);
-        Optional.ofNullable(loadStateBackend(configuration, classLoader))
-                .ifPresent(this::setStateBackend);
-        configuration
-                .getOptional(PipelineOptions.OPERATOR_CHAINING)
-                .ifPresent(c -> this.isChainingEnabled = c);
-        configuration
-                .getOptional(ExecutionOptions.BUFFER_TIMEOUT)
-                .ifPresent(t -> this.setBufferTimeout(t.toMillis()));
+        Optional.ofNullable(loadStateBackend(configuration, classLoader)).ifPresent(this::setStateBackend);
+        configuration.getOptional(PipelineOptions.OPERATOR_CHAINING).ifPresent(c -> this.isChainingEnabled = c);
+        configuration.getOptional(ExecutionOptions.BUFFER_TIMEOUT).ifPresent(t -> this.setBufferTimeout(t.toMillis()));
         configuration
                 .getOptional(DeploymentOptions.JOB_LISTENERS)
                 .ifPresent(listeners -> registerCustomListeners(classLoader, listeners));
@@ -1004,28 +985,18 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                         });
         configuration
                 .getOptional(ExecutionOptions.RUNTIME_MODE)
-                .ifPresent(
-                        runtimeMode ->
-                                this.configuration.set(ExecutionOptions.RUNTIME_MODE, runtimeMode));
+                .ifPresent(runtimeMode -> this.configuration.set(ExecutionOptions.RUNTIME_MODE, runtimeMode));
 
         configuration
                 .getOptional(ExecutionOptions.BATCH_SHUFFLE_MODE)
-                .ifPresent(
-                        shuffleMode ->
-                                this.configuration.set(
-                                        ExecutionOptions.BATCH_SHUFFLE_MODE, shuffleMode));
+                .ifPresent(shuffleMode -> this.configuration.set(ExecutionOptions.BATCH_SHUFFLE_MODE, shuffleMode));
 
         configuration
                 .getOptional(ExecutionOptions.SORT_INPUTS)
-                .ifPresent(
-                        sortInputs ->
-                                this.configuration.set(ExecutionOptions.SORT_INPUTS, sortInputs));
+                .ifPresent(sortInputs -> this.configuration.set(ExecutionOptions.SORT_INPUTS, sortInputs));
         configuration
                 .getOptional(ExecutionOptions.USE_BATCH_STATE_BACKEND)
-                .ifPresent(
-                        sortInputs ->
-                                this.configuration.set(
-                                        ExecutionOptions.USE_BATCH_STATE_BACKEND, sortInputs));
+                .ifPresent(sortInputs -> this.configuration.set(ExecutionOptions.USE_BATCH_STATE_BACKEND, sortInputs));
         configuration
                 .getOptional(PipelineOptions.NAME)
                 .ifPresent(jobName -> this.configuration.set(PipelineOptions.NAME, jobName));
@@ -1035,9 +1006,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                 .ifPresent(
                         flag ->
                                 this.configuration.set(
-                                        ExecutionCheckpointingOptions
-                                                .ENABLE_CHECKPOINTS_AFTER_TASKS_FINISH,
-                                        flag));
+                                        ExecutionCheckpointingOptions.ENABLE_CHECKPOINTS_AFTER_TASKS_FINISH, flag));
 
         configuration
                 .getOptional(PipelineOptions.JARS)
@@ -1047,12 +1016,10 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         checkpointCfg.configure(configuration);
     }
 
-    private void registerCustomListeners(
-            final ClassLoader classLoader, final List<String> listeners) {
+    private void registerCustomListeners(final ClassLoader classLoader, final List<String> listeners) {
         for (String listener : listeners) {
             try {
-                final JobListener jobListener =
-                        InstantiationUtil.instantiate(listener, JobListener.class, classLoader);
+                final JobListener jobListener = InstantiationUtil.instantiate(listener, JobListener.class, classLoader);
                 jobListeners.add(jobListener);
             } catch (FlinkException e) {
                 throw new WrappingRuntimeException("Could not load JobListener : " + listener, e);
@@ -1087,8 +1054,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     @Deprecated
     public DataStreamSource<Long> generateSequence(long from, long to) {
         if (from > to) {
-            throw new IllegalArgumentException(
-                    "Start of sequence must not be greater than the end");
+            throw new IllegalArgumentException("Start of sequence must not be greater than the end");
         }
         return addSource(new StatefulSequenceSource(from, to), "Sequence Source (Deprecated)");
     }
@@ -1114,13 +1080,9 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      */
     public DataStreamSource<Long> fromSequence(long from, long to) {
         if (from > to) {
-            throw new IllegalArgumentException(
-                    "Start of sequence must not be greater than the end");
+            throw new IllegalArgumentException("Start of sequence must not be greater than the end");
         }
-        return fromSource(
-                new NumberSequenceSource(from, to),
-                WatermarkStrategy.noWatermarks(),
-                "Sequence Source");
+        return fromSource(new NumberSequenceSource(from, to), WatermarkStrategy.noWatermarks(), "Sequence Source");
     }
 
     /**
@@ -1141,8 +1103,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     @SafeVarargs
     public final <OUT> DataStreamSource<OUT> fromElements(OUT... data) {
         if (data.length == 0) {
-            throw new IllegalArgumentException(
-                    "fromElements needs at least one element as argument");
+            throw new IllegalArgumentException("fromElements needs at least one element as argument");
         }
 
         TypeInformation<OUT> typeInfo;
@@ -1174,8 +1135,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     @SafeVarargs
     public final <OUT> DataStreamSource<OUT> fromElements(Class<OUT> type, OUT... data) {
         if (data.length == 0) {
-            throw new IllegalArgumentException(
-                    "fromElements needs at least one element as argument");
+            throw new IllegalArgumentException("fromElements needs at least one element as argument");
         }
 
         TypeInformation<OUT> typeInfo;
@@ -1243,16 +1203,14 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param <OUT> The type of the returned data stream
      * @return The data stream representing the given collection
      */
-    public <OUT> DataStreamSource<OUT> fromCollection(
-            Collection<OUT> data, TypeInformation<OUT> typeInfo) {
+    public <OUT> DataStreamSource<OUT> fromCollection(Collection<OUT> data, TypeInformation<OUT> typeInfo) {
         Preconditions.checkNotNull(data, "Collection must not be null");
 
         // must not have null elements and mixed elements
         FromElementsFunction.checkCollection(data, typeInfo.getTypeClass());
 
         SourceFunction<OUT> function = new FromElementsFunction<>(data);
-        return addSource(function, "Collection Source", typeInfo, Boundedness.BOUNDED)
-                .setParallelism(1);
+        return addSource(function, "Collection Source", typeInfo, Boundedness.BOUNDED).setParallelism(1);
     }
 
     /**
@@ -1293,8 +1251,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param <OUT> The type of the returned data stream
      * @return The data stream representing the elements in the iterator
      */
-    public <OUT> DataStreamSource<OUT> fromCollection(
-            Iterator<OUT> data, TypeInformation<OUT> typeInfo) {
+    public <OUT> DataStreamSource<OUT> fromCollection(Iterator<OUT> data, TypeInformation<OUT> typeInfo) {
         Preconditions.checkNotNull(data, "The iterator must not be null");
 
         SourceFunction<OUT> function = new FromIteratorFunction<>(data);
@@ -1315,8 +1272,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param <OUT> The type of the returned data stream
      * @return A data stream representing the elements in the iterator
      */
-    public <OUT> DataStreamSource<OUT> fromParallelCollection(
-            SplittableIterator<OUT> iterator, Class<OUT> type) {
+    public <OUT> DataStreamSource<OUT> fromParallelCollection(SplittableIterator<OUT> iterator, Class<OUT> type) {
         return fromParallelCollection(iterator, TypeExtractor.getForClass(type));
     }
 
@@ -1345,11 +1301,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     // private helper for passing different names
     private <OUT> DataStreamSource<OUT> fromParallelCollection(
             SplittableIterator<OUT> iterator, TypeInformation<OUT> typeInfo, String operatorName) {
-        return addSource(
-                new FromSplittableIteratorFunction<>(iterator),
-                operatorName,
-                typeInfo,
-                Boundedness.BOUNDED);
+        return addSource(new FromSplittableIteratorFunction<>(iterator), operatorName, typeInfo, Boundedness.BOUNDED);
     }
 
     /**
@@ -1408,8 +1360,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     @Deprecated
     public DataStreamSource<String> readTextFile(String filePath, String charsetName) {
         Preconditions.checkArgument(
-                !StringUtils.isNullOrWhitespaceOnly(filePath),
-                "The file path must not be null or blank.");
+                !StringUtils.isNullOrWhitespaceOnly(filePath), "The file path must not be null or blank.");
 
         TextInputFormat format = new TextInputFormat(new Path(filePath));
         format.setFilesFilter(FilePathFilter.createDefaultFilter());
@@ -1546,10 +1497,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     @Deprecated
     @PublicEvolving
     public <OUT> DataStreamSource<OUT> readFile(
-            FileInputFormat<OUT> inputFormat,
-            String filePath,
-            FileProcessingMode watchType,
-            long interval) {
+            FileInputFormat<OUT> inputFormat, String filePath, FileProcessingMode watchType, long interval) {
 
         TypeInformation<OUT> typeInformation;
         try {
@@ -1585,9 +1533,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     public DataStream<String> readFileStream(
             String filePath, long intervalMillis, FileMonitoringFunction.WatchType watchType) {
         DataStream<Tuple3<String, Long, Long>> source =
-                addSource(
-                        new FileMonitoringFunction(filePath, intervalMillis, watchType),
-                        "Read File Stream source");
+                addSource(new FileMonitoringFunction(filePath, intervalMillis, watchType), "Read File Stream source");
 
         return source.flatMap(new FileReadFunction());
     }
@@ -1640,12 +1586,10 @@ public class StreamExecutionEnvironment implements AutoCloseable {
 
         Preconditions.checkNotNull(inputFormat, "InputFormat must not be null.");
         Preconditions.checkArgument(
-                !StringUtils.isNullOrWhitespaceOnly(filePath),
-                "The file path must not be null or blank.");
+                !StringUtils.isNullOrWhitespaceOnly(filePath), "The file path must not be null or blank.");
 
         inputFormat.setFilePath(filePath);
-        return createFileInput(
-                inputFormat, typeInformation, "Custom File Source", watchType, interval);
+        return createFileInput(inputFormat, typeInformation, "Custom File Source", watchType, interval);
     }
 
     /**
@@ -1668,8 +1612,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @deprecated Use {@link #socketTextStream(String, int, String, long)} instead.
      */
     @Deprecated
-    public DataStreamSource<String> socketTextStream(
-            String hostname, int port, char delimiter, long maxRetry) {
+    public DataStreamSource<String> socketTextStream(String hostname, int port, char delimiter, long maxRetry) {
         return socketTextStream(hostname, port, String.valueOf(delimiter), maxRetry);
     }
 
@@ -1692,10 +1635,8 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @return A data stream containing the strings received from the socket
      */
     @PublicEvolving
-    public DataStreamSource<String> socketTextStream(
-            String hostname, int port, String delimiter, long maxRetry) {
-        return addSource(
-                new SocketTextStreamFunction(hostname, port, delimiter, maxRetry), "Socket Stream");
+    public DataStreamSource<String> socketTextStream(String hostname, int port, String delimiter, long maxRetry) {
+        return addSource(new SocketTextStreamFunction(hostname, port, delimiter, maxRetry), "Socket Stream");
     }
 
     /**
@@ -1775,6 +1716,11 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         return createInput(inputFormat, TypeExtractor.getInputFormatTypes(inputFormat));
     }
 
+    @PublicEvolving
+    public <OUT> DataStreamSource<OUT> createInput(InputFormat<OUT, ?> inputFormat, Boundedness boundedness) {
+        return createInput(inputFormat, TypeExtractor.getInputFormatTypes(inputFormat), boundedness);
+    }
+
     /**
      * Generic method to create an input data stream with {@link
      * org.apache.flink.api.common.io.InputFormat}.
@@ -1796,23 +1742,32 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @return The data stream that represents the data created by the input format
      */
     @PublicEvolving
-    public <OUT> DataStreamSource<OUT> createInput(
-            InputFormat<OUT, ?> inputFormat, TypeInformation<OUT> typeInfo) {
+    public <OUT> DataStreamSource<OUT> createInput(InputFormat<OUT, ?> inputFormat, TypeInformation<OUT> typeInfo) {
         DataStreamSource<OUT> source;
 
         if (inputFormat instanceof FileInputFormat) {
             @SuppressWarnings("unchecked")
             FileInputFormat<OUT> format = (FileInputFormat<OUT>) inputFormat;
 
-            source =
-                    createFileInput(
-                            format,
-                            typeInfo,
-                            "Custom File source",
-                            FileProcessingMode.PROCESS_ONCE,
-                            -1);
+            source = createFileInput(format, typeInfo, "Custom File source", FileProcessingMode.PROCESS_ONCE, -1);
         } else {
             source = createInput(inputFormat, typeInfo, "Custom Source");
+        }
+        return source;
+    }
+
+    @PublicEvolving
+    public <OUT> DataStreamSource<OUT> createInput(
+            InputFormat<OUT, ?> inputFormat, TypeInformation<OUT> typeInfo, Boundedness boundedness) {
+        DataStreamSource<OUT> source;
+
+        if (inputFormat instanceof FileInputFormat) {
+            @SuppressWarnings("unchecked")
+            FileInputFormat<OUT> format = (FileInputFormat<OUT>) inputFormat;
+
+            source = createFileInput(format, typeInfo, "Custom File source", FileProcessingMode.PROCESS_ONCE, -1);
+        } else {
+            source = createInput(inputFormat, typeInfo, "Custom Source", boundedness);
         }
         return source;
     }
@@ -1820,9 +1775,18 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     private <OUT> DataStreamSource<OUT> createInput(
             InputFormat<OUT, ?> inputFormat, TypeInformation<OUT> typeInfo, String sourceName) {
 
-        InputFormatSourceFunction<OUT> function =
-                new InputFormatSourceFunction<>(inputFormat, typeInfo);
+        InputFormatSourceFunction<OUT> function = new InputFormatSourceFunction<>(inputFormat, typeInfo);
         return addSource(function, sourceName, typeInfo);
+    }
+
+    private <OUT> DataStreamSource<OUT> createInput(
+            InputFormat<OUT, ?> inputFormat,
+            TypeInformation<OUT> typeInfo,
+            String sourceName,
+            Boundedness boundedness) {
+
+        InputFormatSourceFunction<OUT> function = new InputFormatSourceFunction<>(inputFormat, typeInfo);
+        return addSource(function, sourceName, typeInfo, boundedness);
     }
 
     private <OUT> DataStreamSource<OUT> createFileInput(
@@ -1845,8 +1809,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                         + " ms.");
 
         ContinuousFileMonitoringFunction<OUT> monitoringFunction =
-                new ContinuousFileMonitoringFunction<>(
-                        inputFormat, monitoringMode, getParallelism(), interval);
+                new ContinuousFileMonitoringFunction<>(inputFormat, monitoringMode, getParallelism(), interval);
 
         ContinuousFileReaderOperatorFactory<OUT, TimestampedFileInputSplit> factory =
                 new ContinuousFileReaderOperatorFactory<>(inputFormat);
@@ -1909,8 +1872,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param typeInfo the user defined type information for the stream
      * @return the data stream constructed
      */
-    public <OUT> DataStreamSource<OUT> addSource(
-            SourceFunction<OUT> function, TypeInformation<OUT> typeInfo) {
+    public <OUT> DataStreamSource<OUT> addSource(SourceFunction<OUT> function, TypeInformation<OUT> typeInfo) {
         return addSource(function, "Custom Source", typeInfo);
     }
 
@@ -1939,16 +1901,14 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         checkNotNull(sourceName);
         checkNotNull(boundedness);
 
-        TypeInformation<OUT> resolvedTypeInfo =
-                getTypeInfo(function, sourceName, SourceFunction.class, typeInfo);
+        TypeInformation<OUT> resolvedTypeInfo = getTypeInfo(function, sourceName, SourceFunction.class, typeInfo);
 
         boolean isParallel = function instanceof ParallelSourceFunction;
 
         clean(function);
 
         final StreamSource<OUT, ?> sourceOperator = new StreamSource<>(function);
-        return new DataStreamSource<>(
-                this, resolvedTypeInfo, sourceOperator, isParallel, sourceName, boundedness);
+        return new DataStreamSource<>(this, resolvedTypeInfo, sourceOperator, isParallel, sourceName, boundedness);
     }
 
     /**
@@ -1971,9 +1931,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      */
     @PublicEvolving
     public <OUT> DataStreamSource<OUT> fromSource(
-            Source<OUT, ?, ?> source,
-            WatermarkStrategy<OUT> timestampsAndWatermarks,
-            String sourceName) {
+            Source<OUT, ?, ?> source, WatermarkStrategy<OUT> timestampsAndWatermarks, String sourceName) {
         return fromSource(source, timestampsAndWatermarks, sourceName, null);
     }
 
@@ -2002,8 +1960,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
             String sourceName,
             TypeInformation<OUT> typeInfo) {
 
-        final TypeInformation<OUT> resolvedTypeInfo =
-                getTypeInfo(source, sourceName, Source.class, typeInfo);
+        final TypeInformation<OUT> resolvedTypeInfo = getTypeInfo(source, sourceName, Source.class, typeInfo);
 
         return new DataStreamSource<>(
                 this,
@@ -2083,8 +2040,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                 jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
             }
 
-            jobListeners.forEach(
-                    jobListener -> jobListener.onJobExecuted(jobExecutionResult, null));
+            jobListeners.forEach(jobListener -> jobListener.onJobExecuted(jobExecutionResult, null));
 
             return jobExecutionResult;
         } catch (Throwable t) {
@@ -2104,8 +2060,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         }
     }
 
-    private void invalidateCacheTransformations(List<Transformation<?>> transformations)
-            throws Exception {
+    private void invalidateCacheTransformations(List<Transformation<?>> transformations) throws Exception {
         for (Transformation<?> transformation : transformations) {
             if (transformation == null) {
                 continue;
@@ -2184,8 +2139,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
         checkNotNull(streamGraph, "StreamGraph cannot be null.");
         final PipelineExecutor executor = getPipelineExecutor();
 
-        CompletableFuture<JobClient> jobClientFuture =
-                executor.execute(streamGraph, configuration, userClassloader);
+        CompletableFuture<JobClient> jobClientFuture = executor.execute(streamGraph, configuration, userClassloader);
 
         try {
             JobClient jobClient = jobClientFuture.get();
@@ -2194,14 +2148,11 @@ public class StreamExecutionEnvironment implements AutoCloseable {
             collectIterators.clear();
             return jobClient;
         } catch (ExecutionException executionException) {
-            final Throwable strippedException =
-                    ExceptionUtils.stripExecutionException(executionException);
-            jobListeners.forEach(
-                    jobListener -> jobListener.onJobSubmitted(null, strippedException));
+            final Throwable strippedException = ExceptionUtils.stripExecutionException(executionException);
+            jobListeners.forEach(jobListener -> jobListener.onJobSubmitted(null, strippedException));
 
             throw new FlinkException(
-                    String.format("Failed to execute job '%s'.", streamGraph.getJobName()),
-                    strippedException);
+                    String.format("Failed to execute job '%s'.", streamGraph.getJobName()), strippedException);
         }
     }
 
@@ -2244,9 +2195,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
             return;
         }
         Set<AbstractID> completedClusterDatasets =
-                listCompletedClusterDatasets().stream()
-                        .map(AbstractID::new)
-                        .collect(Collectors.toSet());
+                listCompletedClusterDatasets().stream().map(AbstractID::new).collect(Collectors.toSet());
         cachedTransformations.forEach(
                 (id, transformation) -> {
                     transformation.setCached(completedClusterDatasets.contains(id));
@@ -2269,14 +2218,12 @@ public class StreamExecutionEnvironment implements AutoCloseable {
 
     private StreamGraphGenerator getStreamGraphGenerator(List<Transformation<?>> transformations) {
         if (transformations.size() <= 0) {
-            throw new IllegalStateException(
-                    "No operators defined in streaming topology. Cannot execute.");
+            throw new IllegalStateException("No operators defined in streaming topology. Cannot execute.");
         }
 
         // We copy the transformation so that newly added transformations cannot intervene with the
         // stream graph generation.
-        return new StreamGraphGenerator(
-                        new ArrayList<>(transformations), config, checkpointCfg, configuration)
+        return new StreamGraphGenerator(new ArrayList<>(transformations), config, checkpointCfg, configuration)
                 .setStateBackend(defaultStateBackend)
                 .setChangelogStateBackendEnabled(changelogStateBackendEnabled)
                 .setSavepointDir(defaultSavepointDirectory)
@@ -2424,8 +2371,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param configuration Pass a custom configuration into the cluster
      * @return A local execution environment with the specified parallelism.
      */
-    public static LocalStreamEnvironment createLocalEnvironment(
-            int parallelism, Configuration configuration) {
+    public static LocalStreamEnvironment createLocalEnvironment(int parallelism, Configuration configuration) {
         Configuration copyOfConfiguration = new Configuration();
         copyOfConfiguration.addAll(configuration);
         copyOfConfiguration.set(CoreOptions.DEFAULT_PARALLELISM, parallelism);
@@ -2487,8 +2433,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      *     must be provided in the JAR files.
      * @return A remote environment that executes the program on a cluster.
      */
-    public static StreamExecutionEnvironment createRemoteEnvironment(
-            String host, int port, String... jarFiles) {
+    public static StreamExecutionEnvironment createRemoteEnvironment(String host, int port, String... jarFiles) {
         return new RemoteStreamEnvironment(host, port, jarFiles);
     }
 
@@ -2604,9 +2549,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      * @param executable flag indicating whether the file should be executable
      */
     public void registerCachedFile(String filePath, String name, boolean executable) {
-        this.cacheFile.add(
-                new Tuple2<>(
-                        name, new DistributedCache.DistributedCacheEntry(filePath, executable)));
+        this.cacheFile.add(new Tuple2<>(name, new DistributedCache.DistributedCacheEntry(filePath, executable)));
     }
 
     /**
@@ -2618,26 +2561,20 @@ public class StreamExecutionEnvironment implements AutoCloseable {
      */
     @Internal
     public static boolean areExplicitEnvironmentsAllowed() {
-        return contextEnvironmentFactory == null
-                && threadLocalContextEnvironmentFactory.get() == null;
+        return contextEnvironmentFactory == null && threadLocalContextEnvironmentFactory.get() == null;
     }
 
     // Private helpers.
     @SuppressWarnings("unchecked")
     private <OUT, T extends TypeInformation<OUT>> T getTypeInfo(
-            Object source,
-            String sourceName,
-            Class<?> baseSourceClass,
-            TypeInformation<OUT> typeInfo) {
+            Object source, String sourceName, Class<?> baseSourceClass, TypeInformation<OUT> typeInfo) {
         TypeInformation<OUT> resolvedTypeInfo = typeInfo;
         if (resolvedTypeInfo == null && source instanceof ResultTypeQueryable) {
             resolvedTypeInfo = ((ResultTypeQueryable<OUT>) source).getProducedType();
         }
         if (resolvedTypeInfo == null) {
             try {
-                resolvedTypeInfo =
-                        TypeExtractor.createTypeInfo(
-                                baseSourceClass, source.getClass(), 0, null, null);
+                resolvedTypeInfo = TypeExtractor.createTypeInfo(baseSourceClass, source.getClass(), 0, null, null);
             } catch (final InvalidTypesException e) {
                 resolvedTypeInfo = (TypeInformation<OUT>) new MissingTypeInfo(sourceName, e);
             }
@@ -2651,16 +2588,14 @@ public class StreamExecutionEnvironment implements AutoCloseable {
     }
 
     @Internal
-    public <T> void registerCacheTransformation(
-            AbstractID intermediateDataSetID, CacheTransformation<T> t) {
+    public <T> void registerCacheTransformation(AbstractID intermediateDataSetID, CacheTransformation<T> t) {
         cachedTransformations.put(intermediateDataSetID, t);
     }
 
     @Internal
     public void invalidateClusterDataset(AbstractID datasetId) throws Exception {
         if (!cachedTransformations.containsKey(datasetId)) {
-            throw new RuntimeException(
-                    String.format("IntermediateDataset %s is not found", datasetId));
+            throw new RuntimeException(String.format("IntermediateDataset %s is not found", datasetId));
         }
         final PipelineExecutor executor = getPipelineExecutor();
 
@@ -2704,8 +2639,7 @@ public class StreamExecutionEnvironment implements AutoCloseable {
                 configuration.get(DeploymentOptions.TARGET),
                 "No execution.target specified in your configuration file.");
 
-        final PipelineExecutorFactory executorFactory =
-                executorServiceLoader.getExecutorFactory(configuration);
+        final PipelineExecutorFactory executorFactory = executorServiceLoader.getExecutorFactory(configuration);
 
         checkNotNull(
                 executorFactory,
