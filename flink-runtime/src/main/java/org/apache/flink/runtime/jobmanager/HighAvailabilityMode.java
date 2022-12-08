@@ -51,15 +51,22 @@ public enum HighAvailabilityMode {
      * @return Configured recovery mode or {@link HighAvailabilityMode#NONE} if not configured.
      */
     public static HighAvailabilityMode fromConfig(Configuration config) {
+        // high-availability
         String haMode = config.getValue(HighAvailabilityOptions.HA_MODE);
 
         if (haMode == null) {
+            // 未开启高可用
             return HighAvailabilityMode.NONE;
         } else if (haMode.equalsIgnoreCase(ConfigConstants.DEFAULT_RECOVERY_MODE)) {
             // Map old default to new default
+            // standalone: 表示未开启高可用
             return HighAvailabilityMode.NONE;
         } else {
             try {
+                // 开启高可用：
+                // 1. ZOOKEEPER
+                // 2. KUBERNETES
+                // 3. FACTORY_CLASS ： 用户自定义实现高可用,org.apache.flink.runtime.highavailability.HighAvailabilityServicesFactory
                 return HighAvailabilityMode.valueOf(haMode.toUpperCase());
             } catch (IllegalArgumentException e) {
                 return FACTORY_CLASS;

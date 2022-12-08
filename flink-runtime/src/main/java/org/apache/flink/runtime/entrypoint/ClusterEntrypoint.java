@@ -282,12 +282,16 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     private void runCluster(Configuration configuration, PluginManager pluginManager)
             throws Exception {
         synchronized (lock) {
+            // 初始化服务： 重要
             initializeServices(configuration, pluginManager);
 
             // write host information into configuration
             configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
             configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
-
+            // 包含：
+            // DispatcherRunnerFactory dispatcherRunnerFactory,
+            // ResourceManagerFactory<?> resourceManagerFactory,
+            // RestEndpointFactory<?> restEndpointFactory
             final DispatcherResourceManagerComponentFactory
                     dispatcherResourceManagerComponentFactory =
                             createDispatcherResourceManagerComponentFactory(configuration);
@@ -307,7 +311,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
                             new RpcMetricQueryServiceRetriever(
                                     metricRegistry.getMetricQueryServiceRpcService()),
                             this);
-
+            // 关闭以后处理一些事情
             clusterComponent
                     .getShutDownFuture()
                     .whenComplete(
@@ -354,7 +358,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
                     "Initialize cluster entrypoint {} with resource id {}.",
                     getClass().getSimpleName(),
                     resourceId);
-
+            // 创建容器工作目录： 相当于Docker的WorkDir
             workingDirectory =
                     ClusterEntrypointUtils.createJobManagerWorkingDirectory(
                             configuration, resourceId);
@@ -362,26 +366,35 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
             LOG.info("Using working directory: {}.", workingDirectory);
 
             rpcSystem = RpcSystem.load(configuration);
-
+            // 构建并启动Rpc服务
             commonRpcService =
                     RpcUtils.createRemoteRpcService(
                             rpcSystem,
                             configuration,
+                            // jobmanager.rpc.address
                             configuration.getString(JobManagerOptions.ADDRESS),
+                            // jobmanager.rpc.port
                             getRPCPortRange(configuration),
+                            // jobmanager.bind-host
                             configuration.getString(JobManagerOptions.BIND_HOST),
+                            // jobmanager.rpc.bind-port
                             configuration.getOptional(JobManagerOptions.RPC_BIND_PORT));
-
+            // jmx.server.port
             JMXService.startInstance(configuration.getString(JMXServerOptions.JMX_SERVER_PORT));
 
             // update the configuration used to create the high availability services
+            // 更新配置
+            // jobmanager.rpc.address
             configuration.setString(JobManagerOptions.ADDRESS, commonRpcService.getAddress());
+            // jobmanager.rpc.port
             configuration.setInteger(JobManagerOptions.PORT, commonRpcService.getPort());
 
             ioExecutor =
                     Executors.newFixedThreadPool(
+                            // cluster.io-pool.size
                             ClusterEntrypointUtils.getPoolSize(configuration),
                             new ExecutorThreadFactory("cluster-io"));
+            // 高可用服务
             haServices = createHaServices(configuration, ioExecutor, rpcSystem);
             blobServer =
                     BlobUtils.createBlobServer(
@@ -390,6 +403,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
                             haServices.createBlobStore());
             blobServer.start();
             configuration.setString(BlobServerOptions.PORT, String.valueOf(blobServer.getPort()));
+            // 心跳服务
             heartbeatServices = createHeartbeatServices(configuration);
             delegationTokenManager =
                     KerberosDelegationTokenManagerFactory.create(
@@ -729,6 +743,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 
         final String clusterEntrypointName = clusterEntrypoint.getClass().getSimpleName();
         try {
+            // 启动集群
             clusterEntrypoint.startCluster();
         } catch (ClusterEntrypointException e) {
             LOG.error(
@@ -741,6 +756,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
         Throwable throwable = null;
 
         try {
+            // 阻塞-直到AppMaster容器内进程启动完成（这个过程有可能容器内进程启动失败）
             returnCode = clusterEntrypoint.getTerminationFuture().get().processExitCode();
         } catch (Throwable e) {
             throwable = ExceptionUtils.stripExecutionException(e);

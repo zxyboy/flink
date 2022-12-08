@@ -84,17 +84,20 @@ public class RestHandlerConfiguration {
     }
 
     public static RestHandlerConfiguration fromConfiguration(Configuration configuration) {
+        // web页面刷新时间：web.refresh-interval， 默认：3s
         final long refreshInterval = configuration.getLong(WebOptions.REFRESH_INTERVAL);
-
+        // 最大checkpoint数量：web.checkpoints.history，默认：10
         final int maxCheckpointStatisticCacheEntries =
                 configuration.getInteger(WebOptions.CHECKPOINTS_HISTORY_SIZE);
-
+        // web页面超时时间：web.timeout， 默认：10分钟
         final Time timeout = Time.milliseconds(configuration.getLong(WebOptions.TIMEOUT));
 
         final String rootDir = "flink-web-ui";
+        // webui目录：web.tmpdir，默认：${java.io.tmpdir}/flink-web-ui
         final File webUiDir = new File(configuration.getString(WebOptions.TMP_DIR), rootDir);
-
+        // web页面是否支持提交任务：web.submit.enable，默认：true
         final boolean webSubmitEnabled = configuration.getBoolean(WebOptions.SUBMIT_ENABLE);
+        // web页面是否支持取消任务：web.cancel.enable，默认：true
         final boolean webCancelEnabled = configuration.getBoolean(WebOptions.CANCEL_ENABLE);
 
         return new RestHandlerConfiguration(

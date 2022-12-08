@@ -114,6 +114,7 @@ public final class ClusterEntrypointUtils {
      * @return The legal io-executor pool size.
      */
     public static int getPoolSize(Configuration config) {
+        // cluster.io-pool.size
         final int poolSize =
                 config.getInteger(
                         ClusterOptions.CLUSTER_IO_EXECUTOR_POOL_SIZE,
@@ -186,6 +187,7 @@ public final class ClusterEntrypointUtils {
             Configuration configuration, ResourceID resourceId) {
         return generateWorkingDirectoryFile(
                 configuration,
+                // process.jobmanager.working-dir
                 Optional.of(ClusterOptions.JOB_MANAGER_PROCESS_WORKING_DIR_BASE),
                 "jm_" + resourceId);
     }

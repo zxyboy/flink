@@ -123,10 +123,11 @@ public class HeartbeatServices {
      * @return An HeartbeatServices instance created from the given configuration
      */
     public static HeartbeatServices fromConfiguration(Configuration configuration) {
+        // heartbeat.interval
         long heartbeatInterval = configuration.getLong(HeartbeatManagerOptions.HEARTBEAT_INTERVAL);
-
+        // heartbeat.timeout
         long heartbeatTimeout = configuration.getLong(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT);
-
+        // heartbeat.rpc-failure-threshold : 2
         int failedRpcRequestsUntilUnreachable =
                 configuration.get(HeartbeatManagerOptions.HEARTBEAT_RPC_FAILURE_THRESHOLD);
 

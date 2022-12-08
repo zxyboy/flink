@@ -161,7 +161,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
                                     metricQueryServiceRetriever,
                                     dispatcherGatewayRetriever,
                                     executor);
-
+            // Dispatcher REST 服务
             webMonitorEndpoint =
                     restEndpointFactory.createRestEndpoint(
                             configuration,

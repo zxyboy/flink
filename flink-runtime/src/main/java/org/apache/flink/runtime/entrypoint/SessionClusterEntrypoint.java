@@ -42,10 +42,13 @@ public abstract class SessionClusterEntrypoint extends ClusterEntrypoint {
     @Override
     protected ExecutionGraphInfoStore createSerializableExecutionGraphStore(
             Configuration configuration, ScheduledExecutor scheduledExecutor) throws IOException {
+        // jobstore.type : 默认 File
         final JobManagerOptions.JobStoreType jobStoreType =
                 configuration.get(JobManagerOptions.JOB_STORE_TYPE);
+        // job存储过期时间：jobstore.expiration-time
         final Time expirationTime =
                 Time.seconds(configuration.getLong(JobManagerOptions.JOB_STORE_EXPIRATION_TIME));
+        // job存储最大容量：jobstore.max-capacity
         final int maximumCapacity =
                 configuration.getInteger(JobManagerOptions.JOB_STORE_MAX_CAPACITY);
 
@@ -54,6 +57,7 @@ public abstract class SessionClusterEntrypoint extends ClusterEntrypoint {
                 {
                     final File tmpDir =
                             new File(ConfigurationUtils.parseTempDirectories(configuration)[0]);
+                    // job存储最大缓存： jobstore.cache-size
                     final long maximumCacheSizeBytes =
                             configuration.getLong(JobManagerOptions.JOB_STORE_CACHE_SIZE);
 
