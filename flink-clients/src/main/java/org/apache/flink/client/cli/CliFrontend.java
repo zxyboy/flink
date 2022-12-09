@@ -214,16 +214,18 @@ public class CliFrontend {
      */
     protected void run(String[] args) throws Exception {
         LOG.info("Running 'run' command.");
-
+        // run命令下所有参数
         final Options commandOptions = CliFrontendParser.getRunCommandOptions();
+        // 解析命令行参数
         final CommandLine commandLine = getCommandLine(commandOptions, args, true);
 
         // evaluate help flag
+        // 命令行中包含： -h 或 --help 则打印帮助命令
         if (commandLine.hasOption(HELP_OPTION.getOpt())) {
             CliFrontendParser.printHelpForRun(customCommandLines);
             return;
         }
-
+        // TODO 暂时忽略作用
         final CustomCommandLine activeCommandLine =
                 validateAndGetActiveCommandLine(checkNotNull(commandLine));
 
@@ -705,6 +707,7 @@ public class CliFrontend {
     public CommandLine getCommandLine(
             final Options commandOptions, final String[] args, final boolean stopAtNonOptions)
             throws CliArgsException {
+        // 合并customCommandLineOptions
         final Options commandLineOptions =
                 CliFrontendParser.mergeOptions(commandOptions, customCommandLineOptions);
         return CliFrontendParser.parse(commandLineOptions, args, stopAtNonOptions);
@@ -1068,6 +1071,7 @@ public class CliFrontend {
     public int parseAndRun(String[] args) {
 
         // check for action
+        // 没有指定任何参数，则打印帮助信息
         if (args.length < 1) {
             CliFrontendParser.printHelp(customCommandLines);
             System.out.println("Please specify an action.");
@@ -1084,24 +1088,31 @@ public class CliFrontend {
             // do action
             switch (action) {
                 case ACTION_RUN:
+                    // run
                     run(params);
                     return 0;
                 case ACTION_RUN_APPLICATION:
+                    // run-application
                     runApplication(params);
                     return 0;
                 case ACTION_LIST:
+                    // list
                     list(params);
                     return 0;
                 case ACTION_INFO:
+                    // info
                     info(params);
                     return 0;
                 case ACTION_CANCEL:
+                    // cancel
                     cancel(params);
                     return 0;
                 case ACTION_STOP:
+                    // stop
                     stop(params);
                     return 0;
                 case ACTION_SAVEPOINT:
+                    // savepoint
                     savepoint(params);
                     return 0;
                 case "-h":
@@ -1147,13 +1158,16 @@ public class CliFrontend {
         EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
         // 1. find the configuration directory
+        // 找到flink配置目录：$FLINK_HOME/conf
         final String configurationDirectory = getConfigurationDirectoryFromEnv();
 
         // 2. load the global configuration
+        // 加载$FLINK_HOME/conf/flink-conf.yaml配置文件
         final Configuration configuration =
                 GlobalConfiguration.loadConfiguration(configurationDirectory);
 
         // 3. load the custom command lines
+        // 加载自定义命令,其中加载了：GenericCLI、FlinkYarnSessionCli（失败会加载：FallbackYarnSessionCli）、DefaultCLI
         final List<CustomCommandLine> customCommandLines =
                 loadCustomCommandLines(configuration, configurationDirectory);
 
@@ -1162,6 +1176,7 @@ public class CliFrontend {
             final CliFrontend cli = new CliFrontend(configuration, customCommandLines);
 
             SecurityUtils.install(new SecurityConfiguration(cli.configuration));
+            // 解析命令行参数 并 启动
             retCode = SecurityUtils.getInstalledContext().runSecured(() -> cli.parseAndRun(args));
         } catch (Throwable t) {
             final Throwable strippedThrowable =
@@ -1176,8 +1191,9 @@ public class CliFrontend {
     // --------------------------------------------------------------------------------------------
     //  Miscellaneous Utilities
     // --------------------------------------------------------------------------------------------
-
+    // 从环境变量中获取配置目录
     public static String getConfigurationDirectoryFromEnv() {
+        // FLINK_CONF_DIR
         String location = System.getenv(ConfigConstants.ENV_FLINK_CONF_DIR);
 
         if (location != null) {
@@ -1225,6 +1241,7 @@ public class CliFrontend {
 
         //	Command line interface of the YARN session, with a special initialization here
         //	to prefix all options with y/yarn.
+        // 加载FlinkYarnSessionCli类
         final String flinkYarnSessionCLI = "org.apache.flink.yarn.cli.FlinkYarnSessionCli";
         try {
             customCommandLines.add(
@@ -1235,6 +1252,7 @@ public class CliFrontend {
                             "y",
                             "yarn"));
         } catch (NoClassDefFoundError | Exception e) {
+            // 加载FlinkYarnSessionCli失败，则尝试加载FallbackYarnSessionCli
             final String errorYarnSessionCLI = "org.apache.flink.yarn.cli.FallbackYarnSessionCli";
             try {
                 LOG.info("Loading FallbackYarnSessionCli");

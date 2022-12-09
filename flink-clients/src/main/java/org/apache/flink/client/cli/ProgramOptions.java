@@ -48,9 +48,9 @@ import static org.apache.flink.client.cli.ProgramOptionsUtils.isPythonEntryPoint
 
 /** Base class for command line options that refer to a JAR file program. */
 public class ProgramOptions extends CommandLineOptions {
-
+    // 解析： -j 或者 --jarfile
     private String jarFilePath;
-
+    // 解析： -c 或者 --class
     protected String entryPointClass;
 
     private final List<URL> classpaths;
@@ -69,12 +69,12 @@ public class ProgramOptions extends CommandLineOptions {
 
     protected ProgramOptions(CommandLine line) throws CliArgsException {
         super(line);
-
+        // 解析： -c 或者 --class
         this.entryPointClass =
                 line.hasOption(CLASS_OPTION.getOpt())
                         ? line.getOptionValue(CLASS_OPTION.getOpt())
                         : null;
-
+        // 解析： -j 或者 --jarfile
         this.jarFilePath =
                 line.hasOption(JAR_OPTION.getOpt())
                         ? line.getOptionValue(JAR_OPTION.getOpt())

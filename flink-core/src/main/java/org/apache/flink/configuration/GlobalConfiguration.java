@@ -90,6 +90,7 @@ public final class GlobalConfiguration {
      *
      * @param configDir the directory which contains the configuration files
      */
+    // 加载$FLINK_HOME/conf/flink-conf.yaml配置文件
     public static Configuration loadConfiguration(final String configDir) {
         return loadConfiguration(configDir, null);
     }
@@ -121,6 +122,7 @@ public final class GlobalConfiguration {
         }
 
         // get Flink yaml configuration file
+        // flink-conf.yaml
         final File yamlConfigFile = new File(confDirFile, FLINK_CONF_FILENAME);
 
         if (!yamlConfigFile.exists()) {
@@ -131,7 +133,7 @@ public final class GlobalConfiguration {
                             + yamlConfigFile.getAbsolutePath()
                             + ") does not exist.");
         }
-
+        // 加载flink-conf.yaml配置文件
         Configuration configuration = loadYAMLResource(yamlConfigFile);
 
         logConfiguration("Loading", configuration);

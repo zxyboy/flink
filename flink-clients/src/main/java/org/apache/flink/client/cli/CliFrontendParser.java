@@ -389,7 +389,7 @@ public class CliFrontendParser {
         options.addOption(PYCLIENTEXEC_OPTION);
         return options;
     }
-
+    // 获取run命令下所有参数
     public static Options getRunCommandOptions() {
         return getProgramSpecificOptions(buildGeneralOptions(new Options()))
                 .addOption(SAVEPOINT_PATH_OPTION)
@@ -646,7 +646,7 @@ public class CliFrontendParser {
     // --------------------------------------------------------------------------------------------
     //  Line Parsing
     // --------------------------------------------------------------------------------------------
-
+    // 解析命令行参数
     public static CommandLine parse(Options options, String[] args, boolean stopAtNonOptions)
             throws CliArgsException {
         final DefaultParser parser = new DefaultParser();
