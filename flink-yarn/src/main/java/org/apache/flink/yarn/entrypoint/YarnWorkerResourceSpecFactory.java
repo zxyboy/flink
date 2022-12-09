@@ -47,6 +47,7 @@ public class YarnWorkerResourceSpecFactory extends WorkerResourceSpecFactory {
 
     @VisibleForTesting
     static CPUResource getDefaultCpus(final Configuration configuration) {
+        // yarn.containers.vcores
         int fallback = configuration.getInteger(YarnConfigOptions.VCORES);
         double cpuCoresDouble =
                 TaskExecutorProcessUtils.getCpuCoresWithFallback(configuration, fallback)

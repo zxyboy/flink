@@ -226,11 +226,13 @@ public class TaskExecutorProcessUtils {
 
     public static CPUResource getCpuCoresWithFallback(final Configuration config, double fallback) {
         final double cpuCores;
+        // taskmanager.cpu.cores
         if (config.contains(TaskManagerOptions.CPU_CORES)) {
             cpuCores = config.getDouble(TaskManagerOptions.CPU_CORES);
         } else if (fallback > 0.0) {
             cpuCores = fallback;
         } else {
+            // taskmanager.numberOfTaskSlots
             cpuCores = config.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
         }
 

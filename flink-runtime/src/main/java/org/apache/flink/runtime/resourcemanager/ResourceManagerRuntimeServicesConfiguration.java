@@ -62,7 +62,7 @@ public class ResourceManagerRuntimeServicesConfiguration {
     public static ResourceManagerRuntimeServicesConfiguration fromConfiguration(
             Configuration configuration, WorkerResourceSpecFactory defaultWorkerResourceSpecFactory)
             throws ConfigurationException {
-
+        // resourcemanager.job.timeout
         final String strJobTimeout = configuration.getString(ResourceManagerOptions.JOB_TIMEOUT);
         final Time jobTimeout;
 

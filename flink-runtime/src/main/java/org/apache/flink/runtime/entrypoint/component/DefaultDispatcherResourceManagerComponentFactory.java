@@ -147,11 +147,14 @@ public class DefaultDispatcherResourceManagerComponentFactory
 
             final ScheduledExecutorService executor =
                     WebMonitorEndpoint.createExecutorService(
+                            // rest.server.numThreads, 默认：4
                             configuration.getInteger(RestOptions.SERVER_NUM_THREADS),
+                            // rest.server.thread-priority， 默认：5
                             configuration.getInteger(RestOptions.SERVER_THREAD_PRIORITY),
                             "DispatcherRestEndpoint");
 
             final long updateInterval =
+                    // metrics.fetcher.update-interval, 默认：10s
                     configuration.getLong(MetricOptions.METRIC_FETCHER_UPDATE_INTERVAL);
             final MetricFetcher metricFetcher =
                     updateInterval == 0
@@ -161,7 +164,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
                                     metricQueryServiceRetriever,
                                     dispatcherGatewayRetriever,
                                     executor);
-            // Dispatcher REST 服务
+            // WebMonitor REST 服务
             webMonitorEndpoint =
                     restEndpointFactory.createRestEndpoint(
                             configuration,
@@ -177,7 +180,7 @@ public class DefaultDispatcherResourceManagerComponentFactory
             webMonitorEndpoint.start();
 
             final String hostname = RpcUtils.getHostname(rpcService);
-
+            // ResourceManager服务
             resourceManagerService =
                     ResourceManagerServiceImpl.create(
                             resourceManagerFactory,

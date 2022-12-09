@@ -47,6 +47,7 @@ public enum SessionRestEndpointFactory implements RestEndpointFactory<Dispatcher
             LeaderElectionService leaderElectionService,
             FatalErrorHandler fatalErrorHandler)
             throws Exception {
+        // 获取REST相关配置
         final RestHandlerConfiguration restHandlerConfiguration =
                 RestHandlerConfiguration.fromConfiguration(configuration);
 

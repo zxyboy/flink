@@ -43,11 +43,13 @@ public class TaskExecutorProcessSpecBuilder {
     }
 
     public TaskExecutorProcessSpecBuilder withCpuCores(CPUResource cpuCores) {
+        // taskmanager.cpu.cores
         configuration.setDouble(TaskManagerOptions.CPU_CORES, cpuCores.getValue().doubleValue());
         return this;
     }
 
     public TaskExecutorProcessSpecBuilder withTotalProcessMemory(MemorySize totalProcessMemory) {
+        // taskmanager.memory.process.size
         configuration.set(TaskManagerOptions.TOTAL_PROCESS_MEMORY, totalProcessMemory);
         return this;
     }
