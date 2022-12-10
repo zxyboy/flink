@@ -62,7 +62,7 @@ public class DefaultCLI extends AbstractCustomCommandLine {
             setJobManagerAddressInConfig(resultingConfiguration, jobManagerAddress);
         }
         resultingConfiguration.setString(DeploymentOptions.TARGET, RemoteExecutor.NAME);
-
+        // 解析动态属性： -Dkey=value，添加到Configuration
         DynamicPropertiesUtil.encodeDynamicProperties(commandLine, resultingConfiguration);
 
         return resultingConfiguration;

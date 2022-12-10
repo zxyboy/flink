@@ -64,6 +64,7 @@ public class FlinkUserCodeClassLoaders {
             final URL[] urls, final ClassLoader parent, final ReadableConfig config) {
         final String[] alwaysParentFirstLoaderPatterns =
                 CoreOptions.getParentFirstLoaderPatterns(config);
+        // classloader.resolve-order
         final String classLoaderResolveOrder = config.get(CoreOptions.CLASSLOADER_RESOLVE_ORDER);
         final FlinkUserCodeClassLoaders.ResolveOrder resolveOrder =
                 FlinkUserCodeClassLoaders.ResolveOrder.fromString(classLoaderResolveOrder);

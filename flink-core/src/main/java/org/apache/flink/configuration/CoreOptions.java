@@ -153,7 +153,9 @@ public class CoreOptions {
                                     + "thrown while trying to load a user code class.");
 
     public static String[] getParentFirstLoaderPatterns(ReadableConfig config) {
+        // classloader.parent-first-patterns.default
         List<String> base = config.get(ALWAYS_PARENT_FIRST_LOADER_PATTERNS);
+        // classloader.parent-first-patterns.additional
         List<String> append = config.get(ALWAYS_PARENT_FIRST_LOADER_PATTERNS_ADDITIONAL);
         return mergeListsToArray(base, append);
     }

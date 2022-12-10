@@ -623,8 +623,10 @@ public class CliFrontendParser {
     }
 
     public static SavepointRestoreSettings createSavepointRestoreSettings(CommandLine commandLine) {
+        // 包含： -s 或者 --fromSavepoint
         if (commandLine.hasOption(SAVEPOINT_PATH_OPTION.getOpt())) {
             String savepointPath = commandLine.getOptionValue(SAVEPOINT_PATH_OPTION.getOpt());
+            // 解析： -n 或者 --allowNonRestoredState
             boolean allowNonRestoredState =
                     commandLine.hasOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION.getOpt());
             final RestoreMode restoreMode;

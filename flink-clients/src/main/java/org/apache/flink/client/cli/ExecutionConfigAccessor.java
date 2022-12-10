@@ -60,8 +60,9 @@ public class ExecutionConfigAccessor {
         checkNotNull(jobJars);
 
         final Configuration configuration = new Configuration();
-
+        // 将命令行指定的参数保存到configuration
         options.applyToConfiguration(configuration);
+        // 设置：pipeline.jars
         ConfigUtils.encodeCollectionToConfig(
                 configuration, PipelineOptions.JARS, jobJars, Object::toString);
 

@@ -103,7 +103,7 @@ public class CliFrontend {
     private static final String CONFIG_DIRECTORY_FALLBACK_2 = "conf";
 
     // --------------------------------------------------------------------------------------------
-
+    // flink-conf.yaml文件中读取的配置
     private final Configuration configuration;
 
     private final List<CustomCommandLine> customCommandLines;
@@ -228,17 +228,18 @@ public class CliFrontend {
         // TODO 暂时忽略作用
         final CustomCommandLine activeCommandLine =
                 validateAndGetActiveCommandLine(checkNotNull(commandLine));
-
+        // 将命令行参数转换为程序参数
         final ProgramOptions programOptions = ProgramOptions.create(commandLine);
 
         final List<URL> jobJars = getJobJarAndDependencies(programOptions);
-
+        // 获取最终有效配置项
         final Configuration effectiveConfiguration =
                 getEffectiveConfiguration(activeCommandLine, commandLine, programOptions, jobJars);
 
         LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
-
+        // 获取程序
         try (PackagedProgram program = getPackagedProgram(programOptions, effectiveConfiguration)) {
+            // 执行程序
             executeProgram(effectiveConfiguration, program);
         }
     }
@@ -257,7 +258,7 @@ public class CliFrontend {
                     "Could not get job jar and dependencies from JAR file: " + e.getMessage(), e);
         }
     }
-
+    // 获取包程序
     private PackagedProgram getPackagedProgram(
             ProgramOptions programOptions, Configuration effectiveConfiguration)
             throws ProgramInvocationException, CliArgsException {
@@ -271,13 +272,13 @@ public class CliFrontend {
         }
         return program;
     }
-
+    // 得到运行程序有效配置
     private <T> Configuration getEffectiveConfiguration(
             final CustomCommandLine activeCustomCommandLine, final CommandLine commandLine)
             throws FlinkException {
-
+        // flink-conf.yaml配置
         final Configuration effectiveConfiguration = new Configuration(configuration);
-
+        // 加载动态属性： -Dkey=value等
         final Configuration commandLineConfiguration =
                 checkNotNull(activeCustomCommandLine).toConfiguration(commandLine);
 
@@ -285,21 +286,21 @@ public class CliFrontend {
 
         return effectiveConfiguration;
     }
-
+    // 得到运行程序有效配置
     private <T> Configuration getEffectiveConfiguration(
             final CustomCommandLine activeCustomCommandLine,
             final CommandLine commandLine,
             final ProgramOptions programOptions,
             final List<T> jobJars)
             throws FlinkException {
-
+        // 得到运行程序有效配置
         final Configuration effectiveConfiguration =
                 getEffectiveConfiguration(activeCustomCommandLine, commandLine);
 
         final ExecutionConfigAccessor executionParameters =
                 ExecutionConfigAccessor.fromProgramOptions(
                         checkNotNull(programOptions), checkNotNull(jobJars));
-
+        // 合并配置项
         executionParameters.applyToConfiguration(effectiveConfiguration);
 
         LOG.debug(
@@ -840,7 +841,7 @@ public class CliFrontend {
     // --------------------------------------------------------------------------------------------
     //  Interaction with programs and JobManager
     // --------------------------------------------------------------------------------------------
-
+    // 执行用户程序
     protected void executeProgram(final Configuration configuration, final PackagedProgram program)
             throws ProgramInvocationException {
         ClientUtils.executeProgram(
@@ -865,13 +866,17 @@ public class CliFrontend {
      */
     PackagedProgram buildProgram(final ProgramOptions runOptions, final Configuration configuration)
             throws FileNotFoundException, ProgramInvocationException, CliArgsException {
+        // 验证： 必须要指定用户程序jar包
         runOptions.validate();
-
+        // 用户程序参数
         String[] programArgs = runOptions.getProgramArgs();
+        // 用户程序jar包
         String jarFilePath = runOptions.getJarFilePath();
+        // 类路径
         List<URL> classpaths = runOptions.getClasspaths();
 
         // Get assembler class
+        // 用户程序入口类
         String entryPointClass = runOptions.getEntryPointClassName();
         File jarFile = jarFilePath != null ? getJarFile(jarFilePath) : null;
 

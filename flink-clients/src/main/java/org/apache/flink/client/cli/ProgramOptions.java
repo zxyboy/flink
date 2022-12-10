@@ -48,13 +48,17 @@ import static org.apache.flink.client.cli.ProgramOptionsUtils.isPythonEntryPoint
 
 /** Base class for command line options that refer to a JAR file program. */
 public class ProgramOptions extends CommandLineOptions {
-    // 解析： -j 或者 --jarfile
+    // 解析： -j 或者 --jarfile，
+    // 如果没有使用以上参数执行，也可以是在命令行中执行包
+    // 例如：/home/flink/flink/bin/flink run -p ${option.parallelism} -c com.socialtouch.martech.mbasedataprocess.application.bilibili.MbaseDateBilibiliBrandDateNewApplication  /home/flink/mbase-dataprocess/mbase-dataprocess-0.0.1-SNAPSHOT.jar.original -recalculate true
+    // 则， jarFilePath 为：  /home/flink/mbase-dataprocess/mbase-dataprocess-0.0.1-SNAPSHOT.jar.original
     private String jarFilePath;
     // 解析： -c 或者 --class
     protected String entryPointClass;
 
     private final List<URL> classpaths;
-
+    // 程序参数：使用-a指定或者放置到用户jar后面：
+    // 比如：-recalculate true
     private final String[] programArgs;
 
     private final boolean hasParallelismOpt;
@@ -66,7 +70,7 @@ public class ProgramOptions extends CommandLineOptions {
     private final boolean shutdownOnAttachedExit;
 
     private final SavepointRestoreSettings savepointSettings;
-
+    // 将命令行参数转换为程序参数
     protected ProgramOptions(CommandLine line) throws CliArgsException {
         super(line);
         // 解析： -c 或者 --class
@@ -79,10 +83,11 @@ public class ProgramOptions extends CommandLineOptions {
                 line.hasOption(JAR_OPTION.getOpt())
                         ? line.getOptionValue(JAR_OPTION.getOpt())
                         : null;
-
+        // 解析程序参数
         this.programArgs = extractProgramArgs(line);
 
         List<URL> classpaths = new ArrayList<URL>();
+        // 解析： -C 或者 --classpath
         if (line.hasOption(CLASSPATH_OPTION.getOpt())) {
             for (String path : line.getOptionValues(CLASSPATH_OPTION.getOpt())) {
                 try {
@@ -93,7 +98,7 @@ public class ProgramOptions extends CommandLineOptions {
             }
         }
         this.classpaths = classpaths;
-
+        // 解析： -p 或者 --parallelism
         if (line.hasOption(PARALLELISM_OPTION.getOpt())) {
             hasParallelismOpt = true;
             String parString = line.getOptionValue(PARALLELISM_OPTION.getOpt());
@@ -108,14 +113,16 @@ public class ProgramOptions extends CommandLineOptions {
             }
         } else {
             hasParallelismOpt = false;
+            // 使用默认并行度
             parallelism = ExecutionConfig.PARALLELISM_DEFAULT;
         }
-
+        // 解析： -d 或者 --detached
         detachedMode =
                 line.hasOption(DETACHED_OPTION.getOpt())
                         || line.hasOption(YARN_DETACHED_OPTION.getOpt());
+        // 解析： -sae 或者 --shutdownOnAttachedExit
         shutdownOnAttachedExit = line.hasOption(SHUTDOWN_IF_ATTACHED_OPTION.getOpt());
-
+        // 指定检查点
         this.savepointSettings = CliFrontendParser.createSavepointRestoreSettings(line);
     }
 
@@ -173,6 +180,7 @@ public class ProgramOptions extends CommandLineOptions {
     }
 
     public void applyToConfiguration(Configuration configuration) {
+        // 如果运行参数指定：  -p 或者 --parallelism ， 则使用指定的并行度
         if (hasParallelismOpt) {
             configuration.setInteger(CoreOptions.DEFAULT_PARALLELISM, getParallelism());
         }
@@ -180,8 +188,10 @@ public class ProgramOptions extends CommandLineOptions {
         configuration.setBoolean(DeploymentOptions.ATTACHED, !getDetachedMode());
         configuration.setBoolean(
                 DeploymentOptions.SHUTDOWN_IF_ATTACHED, isShutdownOnAttachedExit());
+        // 设置： pipeline.classpaths
         ConfigUtils.encodeCollectionToConfig(
                 configuration, PipelineOptions.CLASSPATHS, getClasspaths(), URL::toString);
+        // 设置：从保存点启动相关参数
         SavepointRestoreSettings.toConfiguration(getSavepointRestoreSettings(), configuration);
     }
 

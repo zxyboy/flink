@@ -137,6 +137,7 @@ public class PackagedProgram implements AutoCloseable {
         assert this.jarFile != null || entryPointClassName != null;
 
         // now that we have an entry point, we can extract the nested jar files (if any)
+        // 用户jar包拷贝临时目录，返回临时目录jar集合
         this.extractedTempLibraries =
                 this.jarFile == null
                         ? Collections.emptyList()
@@ -155,9 +156,10 @@ public class PackagedProgram implements AutoCloseable {
                         // the manifest
                         entryPointClassName != null
                                 ? entryPointClassName
+                                // 从用户jar包查找入口类
                                 : getEntryPointClassNameFromJar(this.jarFile),
                         userCodeClassLoader);
-
+        // 验证： mainClass是否包含main方法
         if (!hasMainMethod(mainClass)) {
             throw new ProgramInvocationException(
                     "The given program class does not have a main(String[]) method.");
@@ -216,6 +218,7 @@ public class PackagedProgram implements AutoCloseable {
      * This method assumes that the context environment is prepared, or the execution will be a
      * local execution by default.
      */
+    // 执行用户程序
     public void invokeInteractiveModeForExecution() throws ProgramInvocationException {
         FlinkSecurityManager.monitorUserSystemExitForCurrentThread();
         try {
@@ -319,16 +322,18 @@ public class PackagedProgram implements AutoCloseable {
         return Modifier.isStatic(mainMethod.getModifiers())
                 && Modifier.isPublic(mainMethod.getModifiers());
     }
-
+    // 执行用户程序，调用程序main方法
     private static void callMainMethod(Class<?> entryClass, String[] args)
             throws ProgramInvocationException {
         Method mainMethod;
+        // 验证： 入口类是否使用public修饰 ？
         if (!Modifier.isPublic(entryClass.getModifiers())) {
             throw new ProgramInvocationException(
                     "The class " + entryClass.getName() + " must be public.");
         }
 
         try {
+            // 获取main方法
             mainMethod = entryClass.getMethod("main", String[].class);
         } catch (NoSuchMethodException e) {
             throw new ProgramInvocationException(
@@ -341,17 +346,19 @@ public class PackagedProgram implements AutoCloseable {
                             + t.getMessage(),
                     t);
         }
-
+        // 验证： main方法是否使用static修饰
         if (!Modifier.isStatic(mainMethod.getModifiers())) {
             throw new ProgramInvocationException(
                     "The class " + entryClass.getName() + " declares a non-static main method.");
         }
+        // 验证： main方法是否使用public修饰
         if (!Modifier.isPublic(mainMethod.getModifiers())) {
             throw new ProgramInvocationException(
                     "The class " + entryClass.getName() + " declares a non-public main method.");
         }
 
         try {
+            // 调用main方法
             mainMethod.invoke(null, (Object) args);
         } catch (IllegalArgumentException e) {
             throw new ProgramInvocationException(
@@ -378,7 +385,7 @@ public class PackagedProgram implements AutoCloseable {
                     t);
         }
     }
-
+    // 从用户jar包查找入口类
     private static String getEntryPointClassNameFromJar(URL jarFile)
             throws ProgramInvocationException {
         JarFile jar;
