@@ -69,6 +69,7 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
         this.flinkMemoryUtils = checkNotNull(flinkMemoryUtils);
     }
 
+    // 计算JobManager内存
     public CommonProcessMemorySpec<FM> memoryProcessSpecFromConfig(Configuration config) {
 
         if (options.getRequiredFineGrainedOptions().stream().allMatch(config::contains)) {

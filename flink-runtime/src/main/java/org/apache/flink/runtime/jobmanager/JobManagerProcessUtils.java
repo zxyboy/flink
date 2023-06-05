@@ -43,13 +43,20 @@ public class JobManagerProcessUtils {
 
     static final ProcessMemoryOptions JM_PROCESS_MEMORY_OPTIONS =
             new ProcessMemoryOptions(
+                    // jobmanager.memory.heap.size
                     Collections.singletonList(JobManagerOptions.JVM_HEAP_MEMORY),
+                    // jobmanager.memory.flink.size
                     JobManagerOptions.TOTAL_FLINK_MEMORY,
+                    // jobmanager.memory.process.size
                     JobManagerOptions.TOTAL_PROCESS_MEMORY,
                     new JvmMetaspaceAndOverheadOptions(
+                            // jobmanager.memory.jvm-metaspace.size : 默认： 256M
                             JobManagerOptions.JVM_METASPACE,
+                            // jobmanager.memory.jvm-overhead.min : 默认： 192M
                             JobManagerOptions.JVM_OVERHEAD_MIN,
+                            // jobmanager.memory.jvm-overhead.max : 默认： 1g
                             JobManagerOptions.JVM_OVERHEAD_MAX,
+                            // jobmanager.memory.jvm-overhead.fraction ： 默认：0.1f
                             JobManagerOptions.JVM_OVERHEAD_FRACTION));
 
     @SuppressWarnings("deprecation")

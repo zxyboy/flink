@@ -136,7 +136,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
     private final boolean acceptInteractiveInput;
 
     private final String configurationDirectory;
-
+    // 保存yarn属性
     private final Properties yarnPropertiesFile;
 
     private final ApplicationId yarnApplicationIdFromYarnProperties;
@@ -283,8 +283,14 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
         allOptions.addOption(help);
 
         // try loading a potential yarn properties file
-        this.yarnPropertiesFileLocation =
-                configuration.getString(YarnConfigOptions.PROPERTIES_FILE_LOCATION);
+        // Yarn上flink程序属性文件位置： yarn.properties-file.location
+        // 该文件记录了Flink yarn Session集群中jobManager进程在yarn上的进程id和动态属性
+        // [flink@hadoop-25 flink-dev]$ cat  /tmp/flink-1.16.0-dev/.yarn-properties-flink
+        // #Generated YARN properties file
+        // #Thu Jun 01 17:17:44 CST 2023
+        // dynamicPropertiesString=
+        // applicationID=application_1684346074412_0015
+        this.yarnPropertiesFileLocation = configuration.getString(YarnConfigOptions.PROPERTIES_FILE_LOCATION);
         final File yarnPropertiesLocation = getYarnPropertiesLocation(yarnPropertiesFileLocation);
 
         yarnPropertiesFile = new Properties();
@@ -295,6 +301,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
                     yarnPropertiesLocation.getAbsolutePath());
 
             try (InputStream is = new FileInputStream(yarnPropertiesLocation)) {
+                // 加载已存在的文件
                 yarnPropertiesFile.load(is);
             } catch (IOException ioe) {
                 throw new FlinkException(
@@ -305,10 +312,10 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
                                 + '.',
                         ioe);
             }
-
+            // 获取yarn应用进程id
             final String yarnApplicationIdString =
                     yarnPropertiesFile.getProperty(YARN_APPLICATION_ID_KEY);
-
+            // 文件存在，但是没有保存yarn进程id，则抛出异常
             if (yarnApplicationIdString == null) {
                 throw new FlinkException(
                         "Yarn properties file found but doesn't contain a "
@@ -318,6 +325,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
 
             try {
                 // try converting id to ApplicationId
+                // 将yarn进程id转换成ApplicationId对象
                 yarnApplicationIdFromYarnProperties =
                         ConverterUtils.toApplicationId(yarnApplicationIdString);
             } catch (Exception e) {
@@ -562,7 +570,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
         //	Command Line Options
         //
         final CommandLine cmd = parseCommandLineOptions(args, true);
-
+        // 命令中包含 -h 或者 --help
         if (cmd.hasOption(help.getOpt())) {
             printUsage();
             return 0;
