@@ -109,6 +109,7 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
 
     private CommonProcessMemorySpec<FM> deriveProcessSpecWithTotalFlinkMemory(
             Configuration config) {
+        // 总Flink内存
         MemorySize totalFlinkMemorySize =
                 getMemorySizeFromConfig(config, options.getTotalFlinkMemoryOption());
         FM flinkInternalMemory =
@@ -190,9 +191,12 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
 
     public JvmMetaspaceAndOverhead deriveJvmMetaspaceAndOverheadFromTotalFlinkMemory(
             Configuration config, MemorySize totalFlinkMemorySize) {
+        // 取元空间内存大小
         MemorySize jvmMetaspaceSize =
                 getMemorySizeFromConfig(config, options.getJvmOptions().getJvmMetaspaceOption());
+        // flink总内存 + jvm元空间内存大小
         MemorySize totalFlinkAndJvmMetaspaceSize = totalFlinkMemorySize.add(jvmMetaspaceSize);
+        // 根据fraction推测出jvm开销内存大小
         JvmMetaspaceAndOverhead jvmMetaspaceAndOverhead;
         if (config.contains(options.getTotalProcessMemoryOption())) {
             MemorySize jvmOverheadSize =
@@ -215,10 +219,13 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
 
     private MemorySize deriveJvmOverheadFromTotalFlinkMemoryAndOtherComponents(
             Configuration config, MemorySize totalFlinkMemorySize) {
+        // 总进程内存大小
         MemorySize totalProcessMemorySize =
                 getMemorySizeFromConfig(config, options.getTotalProcessMemoryOption());
+        // 元空间内存大小
         MemorySize jvmMetaspaceSize =
                 getMemorySizeFromConfig(config, options.getJvmOptions().getJvmMetaspaceOption());
+        // flink总内存 + jvm元空间内存大小
         MemorySize totalFlinkAndJvmMetaspaceSize = totalFlinkMemorySize.add(jvmMetaspaceSize);
         if (totalProcessMemorySize.getBytes() < totalFlinkAndJvmMetaspaceSize.getBytes()) {
             throw new IllegalConfigurationException(
@@ -237,6 +244,7 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
             Configuration config,
             MemorySize derivedJvmOverheadSize,
             MemorySize totalProcessMemorySize) {
+        // 根据fraction推测出jvm开销内存大小
         RangeFraction jvmOverheadRangeFraction = getJvmOverheadRangeFraction(config);
         if (derivedJvmOverheadSize.getBytes() > jvmOverheadRangeFraction.getMaxSize().getBytes()
                 || derivedJvmOverheadSize.getBytes()

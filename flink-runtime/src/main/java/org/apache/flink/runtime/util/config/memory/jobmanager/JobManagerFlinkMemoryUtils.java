@@ -38,18 +38,22 @@ public class JobManagerFlinkMemoryUtils implements FlinkMemoryUtils<JobManagerFl
 
     @Override
     public JobManagerFlinkMemory deriveFromRequiredFineGrainedOptions(Configuration config) {
+        // 堆内存: jobmanager.memory.heap.size
         MemorySize jvmHeapMemorySize =
                 ProcessMemoryUtils.getMemorySizeFromConfig(
                         config, JobManagerOptions.JVM_HEAP_MEMORY);
+        // 非堆内存： jobmanager.memory.off-heap.size
         MemorySize offHeapMemorySize =
                 ProcessMemoryUtils.getMemorySizeFromConfig(
                         config, JobManagerOptions.OFF_HEAP_MEMORY);
 
         if (config.contains(JobManagerOptions.TOTAL_FLINK_MEMORY)) {
             // derive network memory from total flink memory, and check against network min/max
+            // 配置了Flink总内存
             MemorySize totalFlinkMemorySize =
                     ProcessMemoryUtils.getMemorySizeFromConfig(
                             config, JobManagerOptions.TOTAL_FLINK_MEMORY);
+
             if (config.contains(JobManagerOptions.OFF_HEAP_MEMORY)) {
                 // off-heap memory is explicitly set by user
                 sanityCheckTotalFlinkMemory(

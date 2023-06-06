@@ -22,6 +22,7 @@ under the License.
 		<groupId>org.apache</groupId>
 		<artifactId>apache</artifactId>
 		<version>20</version>
+		<relativePath></relativePath>
 	</parent>
 
 	<modelVersion>4.0.0</modelVersion>
