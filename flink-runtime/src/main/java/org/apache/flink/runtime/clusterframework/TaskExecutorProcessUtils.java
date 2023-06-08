@@ -54,14 +54,22 @@ public class TaskExecutorProcessUtils {
     static final ProcessMemoryOptions TM_PROCESS_MEMORY_OPTIONS =
             new ProcessMemoryOptions(
                     Arrays.asList(
+                            // taskmanager.memory.task.heap.size
                             TaskManagerOptions.TASK_HEAP_MEMORY,
+                            // taskmanager.memory.managed.size
                             TaskManagerOptions.MANAGED_MEMORY_SIZE),
+                    // taskmanager.memory.flink.size
                     TaskManagerOptions.TOTAL_FLINK_MEMORY,
+                    // taskmanager.memory.process.size
                     TaskManagerOptions.TOTAL_PROCESS_MEMORY,
                     new JvmMetaspaceAndOverheadOptions(
+                            // taskmanager.memory.jvm-metaspace.size
                             TaskManagerOptions.JVM_METASPACE,
+                            // taskmanager.memory.jvm-overhead.min
                             TaskManagerOptions.JVM_OVERHEAD_MIN,
+                            // taskmanager.memory.jvm-overhead.max
                             TaskManagerOptions.JVM_OVERHEAD_MAX,
+                            // taskmanager.memory.jvm-overhead.fraction
                             TaskManagerOptions.JVM_OVERHEAD_FRACTION));
 
     @SuppressWarnings("deprecation")

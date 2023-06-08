@@ -75,11 +75,12 @@ public class ApplicationConfiguration {
 
     public static ApplicationConfiguration fromConfiguration(final Configuration configuration) {
         checkNotNull(configuration);
-
+        // $internal.application.program-args
         final List<String> programArgsList =
                 ConfigUtils.decodeListFromConfig(configuration, APPLICATION_ARGS, String::new);
 
         final String[] programArgs = programArgsList.toArray(new String[0]);
+        // $internal.application.main
         final String applicationClassName = configuration.get(APPLICATION_MAIN_CLASS);
 
         return new ApplicationConfiguration(programArgs, applicationClassName);

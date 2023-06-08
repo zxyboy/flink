@@ -82,7 +82,7 @@ public class HighAvailabilityServicesUtils {
                         "High availability mode " + highAvailabilityMode + " is not supported.");
         }
     }
-
+    // 创建ZookeeperHaServices
     private static HighAvailabilityServices createZooKeeperHaServices(
             Configuration configuration, Executor executor, FatalErrorHandler fatalErrorHandler)
             throws Exception {
@@ -245,6 +245,7 @@ public class HighAvailabilityServicesUtils {
      * @return Path under which all highly available cluster artifacts are being stored
      */
     public static Path getClusterHighAvailableStoragePath(Configuration configuration) {
+        // high-availability.storageDir
         final String storagePath = configuration.getValue(HighAvailabilityOptions.HA_STORAGE_PATH);
 
         if (isNullOrWhitespaceOnly(storagePath)) {
@@ -263,7 +264,7 @@ public class HighAvailabilityServicesUtils {
                             + ')',
                     e);
         }
-
+        // high-availability.cluster-id
         final String clusterId = configuration.getValue(HighAvailabilityOptions.HA_CLUSTER_ID);
 
         final Path clusterStoragePath;

@@ -212,7 +212,9 @@ public class CoreOptions {
                                             + "\".");
 
     public static String[] getPluginParentFirstLoaderPatterns(Configuration config) {
+        // plugin.classloader.parent-first-patterns.default
         List<String> base = config.get(PLUGIN_ALWAYS_PARENT_FIRST_LOADER_PATTERNS);
+        // plugin.classloader.parent-first-patterns.additional
         List<String> append = config.get(PLUGIN_ALWAYS_PARENT_FIRST_LOADER_PATTERNS_ADDITIONAL);
         return mergeListsToArray(base, append);
     }

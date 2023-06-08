@@ -88,6 +88,8 @@ public final class YarnApplicationClusterEntryPoint extends ApplicationClusterEn
                         args,
                         new DynamicParametersConfigurationParserFactory(),
                         YarnApplicationClusterEntryPoint.class);
+        // 加载$HOME/link-conf.yaml文件， 将dynamicParameters合并到configuration中，然后重新JobManager和WebUI相关主机和端口配置
+        // 并且替换一个指定前缀的key（老key不会删除， 只是新增替换前缀的key，两者的值是相同的）
         final Configuration configuration =
                 YarnEntrypointUtils.loadConfiguration(workingDirectory, dynamicParameters, env);
 

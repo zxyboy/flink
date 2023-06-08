@@ -69,29 +69,49 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
         this.flinkMemoryUtils = checkNotNull(flinkMemoryUtils);
     }
 
-    // 计算JobManager内存
+    // 计算JobManager/TaskManager内存
     public CommonProcessMemorySpec<FM> memoryProcessSpecFromConfig(Configuration config) {
 
         if (options.getRequiredFineGrainedOptions().stream().allMatch(config::contains)) {
+            // 对于JobManager
             // 一定配置了jobmanager堆内存：jobmanager.memory.heap.size
             // 但是有可能配置了jjobmanager.memory.flink.size， 也有可能没有配置
             // 但是有可能配置了jobmanager.memory.process.size， 也有可能没有配置
             // all internal memory options are configured, use these to derive total Flink and
             // process memory
+
+            // 对于TaskManager
+            // 一定配置了taskmanager堆内存：taskmanager.memory.task.heap.size 和 tasmanager.memory.managed.size
+            // 但是有可能配置了taskmanager.memory.flink.size， 也有可能没有配置
+            // 但是有可能配置了taskmanager.memory.process.size， 也有可能没有配置
+
             return deriveProcessSpecWithExplicitInternalMemory(config);
         } else if (config.contains(options.getTotalFlinkMemoryOption())) {
+            // 对于JobManager
             // 一定配置了jobmanager总Flink内存：jobmanager.memory.flink.size
             // 一定没有配置jobmanager堆内存：jobmanager.memory.heap.size
             // 但是有可能配置了jobmanager.memory.process.size， 也有可能没有配置
             // internal memory options are not configured, total Flink memory is configured,
             // derive from total flink memory
+
+            // 对于TaskManager
+            // 一定配置了taskmanager总Flink内存：taskmanager.memory.flink.size
+            // 一定没有同时配置taskmanager堆内存：taskmanager.memory.task.heap.size 和 tasmanager.memory.managed.size， 但是可以配置两者之一
+            // 但是有可能配置了taskmanager.memory.process.size， 也有可能没有配置
+
             return deriveProcessSpecWithTotalFlinkMemory(config);
         } else if (config.contains(options.getTotalProcessMemoryOption())) {
+            // 对于JobManager
             //  一定配置了jobmanager总进程内存：jobmanager.memory.process.size
             //  一定没有配置jobmanager堆内存：jobmanager.memory.heap.size
             //  一定没有配置jobmanager总Flink内存：jobmanager.memory.flink.size
             // total Flink memory is not configured, total process memory is configured,
             // derive from total process memory
+
+            // 对于TaskManager
+            // 一定配置了taskmanager总进程内存：taskmanager.memory.process.size
+            // 一定没有配置taskmanager flink总内存： taskmanager.memory.flink.size
+            // 可能配置了taskmanager堆内存：taskmanager.memory.task.heap.size 和 tasmanager.memory.managed.size 之一
             return deriveProcessSpecWithTotalProcessMemory(config);
         }
         // 以上3者都没有配置
@@ -112,12 +132,15 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
         // 总Flink内存
         MemorySize totalFlinkMemorySize =
                 getMemorySizeFromConfig(config, options.getTotalFlinkMemoryOption());
+        // 根据总Flink内存推断其他部分内存配置
         FM flinkInternalMemory =
                 flinkMemoryUtils.deriveFromTotalFlinkMemory(config, totalFlinkMemorySize);
+        // 根据总Flink内存推断jvm开销内存大小
         JvmMetaspaceAndOverhead jvmMetaspaceAndOverhead =
                 deriveJvmMetaspaceAndOverheadFromTotalFlinkMemory(config, totalFlinkMemorySize);
         return new CommonProcessMemorySpec<>(flinkInternalMemory, jvmMetaspaceAndOverhead);
     }
+    // 针对JobManager
     // 根据flink总进程内存（jobmanager.memory.process.size）推断其他部分内存配置
     // 内存关系:
     //  jobmanager总进程内存大小（已知） = Flink总内存大小 + jvm元空间内存大小(已知) + jvm开销内存大小（已知）
@@ -126,6 +149,14 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
     //      1. 如果 flink总进程内存大小 * fraction > jvm开销最大内存大小， 则取jvm开销最大内存大小
     //      2. 如果 flink总进程内存大小 * fraction < jvm开销最小内存大小， 则取jvm开销最小内存大小
     //      3. 如果  jvm开销最小内存大小 <= flink总进程内存大小 * fraction <= jvm开销最大内存大小, 则取：flink总进程内存大小 * fraction
+
+    // 针对TaskManager
+    // 根据taskmanager总进程内存（taskmanager.memory.process.size）推断其他部分内存配置
+    // 内存关系:
+    //  taskmanager总进程内存大小（已知） = Flink总内存大小（jobmanager.memory.flink.size） + jvm元空间内存大小(已知) + jvm开销内存大小（已知）
+    //  taskmanager flink总内存 = flink框架堆内存（taskmanager.memory.framework.heap.size， 默认：128m） + flink框架非堆内存 + task堆内存 + task非堆内存 + 管理内存 + 网络内存
+
+
     private CommonProcessMemorySpec<FM> deriveProcessSpecWithTotalProcessMemory(
             Configuration config) {
         // jobmanager总进程内存 : jobmanager.memory.process.size
@@ -326,6 +357,7 @@ public class ProcessMemoryUtils<FM extends FlinkMemory> {
             ConfigOption<Float> fractionOption,
             Configuration config) {
         // jvm开销占比：jobmanager.memory.jvm-overhead.fraction，默认：0.1
+        // 网络内存占比： jobmanager.memory.network.fraction，默认：0.1
         double fraction = config.getFloat(fractionOption);
         try {
             return new RangeFraction(minSize, maxSize, fraction);

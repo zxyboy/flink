@@ -169,6 +169,7 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     private RpcSystem rpcSystem;
 
     protected ClusterEntrypoint(Configuration configuration) {
+        // 设置Web程序的根目录
         this.configuration = generateClusterConfiguration(configuration);
         this.terminationFuture = new CompletableFuture<>();
 
@@ -571,10 +572,10 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
     private Configuration generateClusterConfiguration(Configuration configuration) {
         final Configuration resultConfiguration =
                 new Configuration(Preconditions.checkNotNull(configuration));
-
+        // web程序临时目录配置：web.tmpdir， 默认为： java.io.tmpdir
         final String webTmpDir = configuration.getString(WebOptions.TMP_DIR);
         final File uniqueWebTmpDir = new File(webTmpDir, "flink-web-" + UUID.randomUUID());
-
+        // 设置web程序临时目录 : 临时目录/flink-web-$uuid
         resultConfiguration.setString(WebOptions.TMP_DIR, uniqueWebTmpDir.getAbsolutePath());
 
         return resultConfiguration;

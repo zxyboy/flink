@@ -44,11 +44,15 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
 
     @Override
     public TaskExecutorFlinkMemory deriveFromRequiredFineGrainedOptions(Configuration config) {
+        // 任务堆内存： taskmanager.memory.task.heap.size
         final MemorySize taskHeapMemorySize = getTaskHeapMemorySize(config);
+        // 管理内存: taskmanager.memory.managed.size
         final MemorySize managedMemorySize = getManagedMemorySize(config);
-
+        // 框架堆内存： taskmanager.memory.framework.heap.size
         final MemorySize frameworkHeapMemorySize = getFrameworkHeapMemorySize(config);
+        // 框架堆外内存： taskmanager.memory.framework.off-heap.size
         final MemorySize frameworkOffHeapMemorySize = getFrameworkOffHeapMemorySize(config);
+        // 任务堆外内存： taskmanager.memory.task.off-heap.size
         final MemorySize taskOffHeapMemorySize = getTaskOffHeapMemorySize(config);
 
         final MemorySize networkMemorySize;
@@ -58,7 +62,7 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                         .add(taskHeapMemorySize)
                         .add(taskOffHeapMemorySize)
                         .add(managedMemorySize);
-
+        /// 如果配置了总内存大小，则从总内存大小中推断出网络内存大小
         if (isTotalFlinkMemorySizeExplicitlyConfigured(config)) {
             // derive network memory from total flink memory, and check against network min/max
             final MemorySize totalFlinkMemorySize = getTotalFlinkMemorySize(config);
@@ -78,11 +82,13 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                                 + totalFlinkMemorySize.toHumanReadableString()
                                 + ").");
             }
+            // 推断网络内存大小 : totalFlinkMemorySize - totalFlinkExcludeNetworkMemorySize
             networkMemorySize = totalFlinkMemorySize.subtract(totalFlinkExcludeNetworkMemorySize);
             sanityCheckNetworkMemoryWithExplicitlySetTotalFlinkAndHeapMemory(
                     config, networkMemorySize, totalFlinkMemorySize);
         } else {
             // derive network memory from network configs
+
             networkMemorySize =
                     isUsingLegacyNetworkConfigs(config)
                             ? getNetworkMemorySizeWithLegacyConfig(config)
@@ -106,19 +112,29 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
     @Override
     public TaskExecutorFlinkMemory deriveFromTotalFlinkMemory(
             final Configuration config, final MemorySize totalFlinkMemorySize) {
+        // 获取flink框架堆内存： taskmanager.memory.framework.heap.size， 默认：128m
         final MemorySize frameworkHeapMemorySize = getFrameworkHeapMemorySize(config);
+        // 获取flink框架非堆内存： taskmanager.memory.framework.off-heap.size， 默认：128m
         final MemorySize frameworkOffHeapMemorySize = getFrameworkOffHeapMemorySize(config);
+        // 获取task非堆内存： taskmanager.memory.task.off-heap.size， 默认：0
         final MemorySize taskOffHeapMemorySize = getTaskOffHeapMemorySize(config);
 
+        // 推断task堆内存： taskmanager.memory.task.heap.size
         final MemorySize taskHeapMemorySize;
+        // 推断network memory： taskmanager.memory.network.min/max/fraction
         final MemorySize networkMemorySize;
+        // 推断managed memory： taskmanager.memory.managed.size
         final MemorySize managedMemorySize;
 
+        // 是否显示配置： taskmanager.memory.task.heap.size
         if (isTaskHeapMemorySizeExplicitlyConfigured(config)) {
             // task heap memory is configured,
             // derive managed memory first, leave the remaining to network memory and check against
             // network min/max
+            // 获取配置的task堆内存： taskmanager.memory.task.heap.size
             taskHeapMemorySize = getTaskHeapMemorySize(config);
+            // 推断managed memory： taskmanager.memory.managed.size,
+            // 如果配置了managed memory, 则使用配置的managed memory， 否则使用：flink总内存 * managed memory fraction (默认： 0.4)
             managedMemorySize =
                     deriveManagedMemoryAbsoluteOrWithFraction(config, totalFlinkMemorySize);
             final MemorySize totalFlinkExcludeNetworkMemorySize =
@@ -127,6 +143,7 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                             .add(taskHeapMemorySize)
                             .add(taskOffHeapMemorySize)
                             .add(managedMemorySize);
+            // 除去network memory后的总内存 > flink总内存， 则抛出异常
             if (totalFlinkExcludeNetworkMemorySize.getBytes() > totalFlinkMemorySize.getBytes()) {
                 throw new IllegalConfigurationException(
                         "Sum of configured Framework Heap Memory ("
@@ -143,15 +160,18 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                                 + totalFlinkMemorySize.toHumanReadableString()
                                 + ").");
             }
+            // 推断network memory： 总Flink内存 - 除去network memory后的总内存
             networkMemorySize = totalFlinkMemorySize.subtract(totalFlinkExcludeNetworkMemorySize);
+            // 检查推断的network memory是否合法
             sanityCheckNetworkMemoryWithExplicitlySetTotalFlinkAndHeapMemory(
                     config, networkMemorySize, totalFlinkMemorySize);
         } else {
             // task heap memory is not configured
             // derive managed memory and network memory, leave the remaining to task heap memory
+            // 推断managed memory：如果显示配置了managed memory，则直接获取配置的managed memory,否则，根据配置的managed memory fraction推断managed memory
             managedMemorySize =
                     deriveManagedMemoryAbsoluteOrWithFraction(config, totalFlinkMemorySize);
-
+            // 推测network memory：如果使用的是旧的配置，则直接获取配置的network memory,否则，根据配置的network memory fraction推断network memory
             networkMemorySize =
                     isUsingLegacyNetworkConfigs(config)
                             ? getNetworkMemorySizeWithLegacyConfig(config)
@@ -162,6 +182,7 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                             .add(taskOffHeapMemorySize)
                             .add(managedMemorySize)
                             .add(networkMemorySize);
+            // 除去task heap memory后的总内存 > flink总内存， 则抛出异常
             if (totalFlinkExcludeTaskHeapMemorySize.getBytes() > totalFlinkMemorySize.getBytes()) {
                 throw new IllegalConfigurationException(
                         "Sum of configured Framework Heap Memory ("
@@ -178,6 +199,7 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                                 + totalFlinkMemorySize.toHumanReadableString()
                                 + ").");
             }
+            // 推断task heap memory： 总Flink内存 - 除去task heap memory后的总内存
             taskHeapMemorySize = totalFlinkMemorySize.subtract(totalFlinkExcludeTaskHeapMemorySize);
         }
 
@@ -196,8 +218,10 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
 
     private static MemorySize deriveManagedMemoryAbsoluteOrWithFraction(
             final Configuration config, final MemorySize base) {
+        // 如果显示配置了managed memory，则直接获取配置的managed memory
         return isManagedMemorySizeExplicitlyConfigured(config)
                 ? getManagedMemorySize(config)
+                // 否则，根据配置的managed memory fraction推断managed memory
                 : ProcessMemoryUtils.deriveWithFraction(
                         "managed memory", base, getManagedMemoryRangeFraction(config));
     }
@@ -257,11 +281,13 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
         final long pageSize = ConfigurationParserUtils.getPageSize(config);
         return new MemorySize(numOfBuffers * pageSize);
     }
-
+    /// 获取网络内存的范围
     private static RangeFraction getNetworkMemoryRangeFraction(final Configuration config) {
+        // 网络内存最小值： taskmanager.memory.network.min , 默认值： 64mb
         final MemorySize minSize =
                 ProcessMemoryUtils.getMemorySizeFromConfig(
                         config, TaskManagerOptions.NETWORK_MEMORY_MIN);
+        // 网络内存最大值： taskmanager.memory.network.max : 默认值： 1gb
         final MemorySize maxSize =
                 ProcessMemoryUtils.getMemorySizeFromConfig(
                         config, TaskManagerOptions.NETWORK_MEMORY_MAX);
@@ -333,7 +359,7 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
             }
         }
     }
-
+    // 验证网络内存
     private static void sanityCheckNetworkMemoryWithExplicitlySetTotalFlinkAndHeapMemory(
             final Configuration config,
             final MemorySize derivedNetworkMemorySize,
@@ -348,11 +374,12 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                     e);
         }
     }
-
+    // 验证网络内存
     private static void sanityCheckNetworkMemory(
             final Configuration config,
             final MemorySize derivedNetworkMemorySize,
             final MemorySize totalFlinkMemorySize) {
+        // 传统配置： 已废弃，此处可以忽略。
         if (isUsingLegacyNetworkConfigs(config)) {
             final MemorySize configuredNetworkMemorySize =
                     getNetworkMemorySizeWithLegacyConfig(config);
@@ -365,7 +392,10 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                                 + ").");
             }
         } else {
+            // 网络内存的范围
             final RangeFraction networkRangeFraction = getNetworkMemoryRangeFraction(config);
+            // 验证网络内存的范围
+            // 如果网络内存大于网络内存的最大值，或者小于网络内存的最小值，抛出异常
             if (derivedNetworkMemorySize.getBytes() > networkRangeFraction.getMaxSize().getBytes()
                     || derivedNetworkMemorySize.getBytes()
                             < networkRangeFraction.getMinSize().getBytes()) {
@@ -378,6 +408,7 @@ public class TaskExecutorFlinkMemoryUtils implements FlinkMemoryUtils<TaskExecut
                                 + networkRangeFraction.getMaxSize().toHumanReadableString()
                                 + "].");
             }
+            // 如果网络内存的大小被明确配置，并且不等于从配置的总Flink内存大小中派生的网络内存大小，则打印日志
             if (isNetworkMemoryFractionExplicitlyConfigured(config)
                     && !derivedNetworkMemorySize.equals(
                             totalFlinkMemorySize.multiply(networkRangeFraction.getFraction()))) {

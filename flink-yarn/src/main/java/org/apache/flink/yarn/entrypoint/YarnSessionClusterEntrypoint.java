@@ -57,13 +57,15 @@ public class YarnSessionClusterEntrypoint extends SessionClusterEntrypoint {
 
     public static void main(String[] args) {
         // startup checks and logging
+        // 日志： 打印环境变量
         EnvironmentInformation.logEnvironmentInfo(
                 LOG, YarnSessionClusterEntrypoint.class.getSimpleName(), args);
         SignalHandler.register(LOG);
+        // 注册一个JVM关闭的钩子，在该构造函数中关闭jvm， 默认等待5s
         JvmShutdownSafeguard.installAsShutdownHook(LOG);
-
+        // 获取系统变量
         Map<String, String> env = System.getenv();
-
+        // 获取工作目录
         final String workingDirectory = env.get(ApplicationConstants.Environment.PWD.key());
         Preconditions.checkArgument(
                 workingDirectory != null,

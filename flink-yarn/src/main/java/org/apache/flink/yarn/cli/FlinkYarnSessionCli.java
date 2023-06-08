@@ -615,7 +615,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
                     final ClusterSpecification clusterSpecification =
                             yarnClusterClientFactory.getClusterSpecification(
                                     effectiveConfiguration);
-                    // 部署yarn session集群 TODO
+                    // 重要： 部署yarn session集群 TODO
                     clusterClientProvider =
                             yarnClusterDescriptor.deploySessionCluster(clusterSpecification);
                     ClusterClient<ApplicationId> clusterClient =
@@ -651,6 +651,7 @@ public class FlinkYarnSessionCli extends AbstractYarnCli {
                 }
                 // 后台运行
                 if (!effectiveConfiguration.getBoolean(DeploymentOptions.ATTACHED)) {
+                    // 打印停止集群提示消息日志
                     YarnClusterDescriptor.logDetachedClusterInformation(yarnApplicationId, LOG);
                 } else {
                     // 前台运行

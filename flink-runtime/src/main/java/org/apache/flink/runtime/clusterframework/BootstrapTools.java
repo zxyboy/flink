@@ -285,6 +285,7 @@ public class BootstrapTools {
      */
     public static void updateTmpDirectoriesInConfiguration(
             Configuration configuration, @Nullable String defaultDirs) {
+        // io.tmp.dirs , 默认为：java.io.tmpdir
         if (configuration.contains(CoreOptions.TMP_DIRS)) {
             LOG.info(
                     "Overriding Flink's temporary file directories with those "
@@ -292,7 +293,9 @@ public class BootstrapTools {
                     configuration.getValue(CoreOptions.TMP_DIRS));
         } else if (defaultDirs != null) {
             LOG.info("Setting directories for temporary files to: {}", defaultDirs);
+            // 覆盖键： io.tmp.dirs 为  ： defaultDirs
             configuration.setString(CoreOptions.TMP_DIRS, defaultDirs);
+            // 设置： internal.io.tmpdirs.use-local-default : true
             configuration.setBoolean(USE_LOCAL_DEFAULT_TMP_DIRS, true);
         }
     }

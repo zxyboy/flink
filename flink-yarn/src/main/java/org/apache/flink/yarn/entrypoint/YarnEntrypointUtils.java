@@ -57,7 +57,7 @@ public class YarnEntrypointUtils {
                 GlobalConfiguration.loadConfiguration(workingDirectory, dynamicParameters);
 
         final String keytabPrincipal = env.get(YarnConfigKeys.KEYTAB_PRINCIPAL);
-        // yarn ResourceManager分别运行AppMaster的节点
+        // 获取运行AppMaster所在的节点主机
         final String hostname = env.get(ApplicationConstants.Environment.NM_HOST.key());
         Preconditions.checkState(
                 hostname != null,
@@ -69,12 +69,12 @@ public class YarnEntrypointUtils {
         configuration.setString(RestOptions.ADDRESS, hostname);
         // 动态配置： rest.bind-address ： $hostname
         configuration.setString(RestOptions.BIND_ADDRESS, hostname);
-
+        // 动态配置： web.port， 如果之前存在，则设置为0，表示随机端口
         // if a web monitor shall be started, set the port to random binding
         if (configuration.getInteger(WebOptions.PORT, 0) >= 0) {
             configuration.setInteger(WebOptions.PORT, 0);
         }
-
+        // 动态配置： rest.bind-port， 如果之前存在，则设置为0，表示随机端口
         if (!configuration.contains(RestOptions.BIND_PORT)) {
             // set the REST port to 0 to select it randomly
             configuration.setString(RestOptions.BIND_PORT, "0");
@@ -83,12 +83,14 @@ public class YarnEntrypointUtils {
         // if the user has set the deprecated YARN-specific config keys, we add the
         // corresponding generic config keys instead. that way, later code needs not
         // deal with deprecated config keys
-
+        // 将configuration中以yarn.application-master.env.开头的配置项修改为以containerized.master.env.开头
+        // 之前的key不会删除，只会额外添加新的key， 值相同。
         BootstrapTools.substituteDeprecatedConfigPrefix(
                 configuration,
                 ConfigConstants.YARN_APPLICATION_MASTER_ENV_PREFIX,
                 ResourceManagerOptions.CONTAINERIZED_MASTER_ENV_PREFIX);
-
+        // 将configuration中以yarn.taskmanager.env.开头的配置项修改为以containerized.taskmanager.env.开头
+        // 之前的key不会删除，只会额外添加新的key， 值相同。
         BootstrapTools.substituteDeprecatedConfigPrefix(
                 configuration,
                 ConfigConstants.YARN_TASK_MANAGER_ENV_PREFIX,
@@ -102,7 +104,7 @@ public class YarnEntrypointUtils {
             configuration.setString(SecurityOptions.KERBEROS_LOGIN_KEYTAB, keytabPath);
             configuration.setString(SecurityOptions.KERBEROS_LOGIN_PRINCIPAL, keytabPrincipal);
         }
-
+        // 在环境变量中获取： LOCAL_DIRS
         final String localDirs = env.get(ApplicationConstants.Environment.LOCAL_DIRS.key());
         BootstrapTools.updateTmpDirectoriesInConfiguration(configuration, localDirs);
 
@@ -112,9 +114,7 @@ public class YarnEntrypointUtils {
     public static void logYarnEnvironmentInformation(Map<String, String> env, Logger log)
             throws IOException {
         // flink
-        // final String yarnClientUsername = env.get(YarnConfigKeys.ENV_HADOOP_USER_NAME);
-        String yarnClientUsername = env.get(YarnConfigKeys.ENV_HADOOP_USER_NAME);
-        yarnClientUsername = "flink";
+        final String yarnClientUsername = env.get(YarnConfigKeys.ENV_HADOOP_USER_NAME);
         Preconditions.checkArgument(
                 yarnClientUsername != null,
                 "YARN client user name environment variable %s not set",
@@ -130,6 +130,7 @@ public class YarnEntrypointUtils {
 
     public static Optional<File> getUsrLibDir(final Configuration configuration) {
         final YarnConfigOptions.UserJarInclusion userJarInclusion =
+                // yarn.classpath.include-user-jar
                 configuration.get(YarnConfigOptions.CLASSPATH_INCLUDE_USER_JAR);
         final Optional<File> userLibDir = tryFindUserLibDirectory();
 

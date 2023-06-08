@@ -413,7 +413,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                 throw new RuntimeException(
                         "The Yarn application " + applicationId + " doesn't run anymore.");
             }
-
+            // 重写配置中JobManager地址和端口、Rest地址和端口、ApplicationId, 设置高可用： high-availability.cluster-id
             setClusterEntrypointInfoToConfig(report);
 
             return () -> {
@@ -596,7 +596,9 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         // yarn最小分配内存
         final int yarnMinAllocationMB =
                 yarnConfiguration.getInt(
+                        // yarn.scheduler.minimum-allocation-mb
                         YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
+                        // 1024MB
                         YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB);
         if (yarnMinAllocationMB <= 0) {
             throw new YarnDeploymentException(
@@ -640,11 +642,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                         validClusterSpecification);
 
         // print the application id for user to cancel themselves.
+        // 后台运行，打印提示信息
         if (detached) {
             final ApplicationId yarnApplicationId = report.getApplicationId();
             logDetachedClusterInformation(yarnApplicationId, LOG);
         }
-
+        // 重写配置中JobManager地址和端口、Rest地址和端口、ApplicationId, 设置高可用： high-availability.cluster-id
         setClusterEntrypointInfoToConfig(report);
 
         return () -> {
@@ -655,7 +658,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
             }
         };
     }
-
+    // 验证集群资源是否满足部署
     private ClusterSpecification validateClusterResources(
             ClusterSpecification clusterSpecification,
             int yarnMinAllocationMB,
@@ -819,7 +822,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         }
         // yarn应用程序上下文
         ApplicationSubmissionContext appContext = yarnApplication.getApplicationSubmissionContext();
-        // 远程文件系统中功效lib目录
+        // 远程文件系统中lib目录
         // 配置方法：
         // 1. flink-conf.yaml中配置：flink.yarn.provided.lib.dirs: xxx
         // 2. yarn-session.sh 脚本参数： -Dyarn.provided.lib.dirs=xxx  指定
@@ -862,18 +865,23 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         final ApplicationId appId = appContext.getApplicationId();
 
         // ------------------ Add Zookeeper namespace to local flinkConfiguraton ------
+        // 如果配置没有HA cluster_id, 则设置: high-availability.cluster-id : $appId
         setHAClusterIdIfNotSet(configuration, appId);
-
+        // 检查是否配置了HA
         if (HighAvailabilityMode.isHighAvailabilityModeActivated(configuration)) {
             // activate re-execution of failed applications
+            // 如果配置了HA，则设置：restart-strategy.fixed-delay.attempts: 配置的重试次数， 如果没有，则默认为：2, 保证高可用JobManager至少重启2次
             appContext.setMaxAppAttempts(
                     configuration.getInteger(
+                            // yarn.application-attempts
                             YarnConfigOptions.APPLICATION_ATTEMPTS.key(),
+                            // 2
                             YarnConfiguration.DEFAULT_RM_AM_MAX_ATTEMPTS));
-
+            // 激活高可用支持
             activateHighAvailabilitySupport(appContext);
         } else {
             // set number of application retries to 1 in the default case
+            // 设置：restart-strategy.fixed-delay.attempts: 配置的重试次数， 如果没有，则默认为：1
             appContext.setMaxAppAttempts(
                     configuration.getInteger(YarnConfigOptions.APPLICATION_ATTEMPTS.key(), 1));
         }
@@ -911,7 +919,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
             jobGraph.writeUserArtifactEntriesToConfiguration();
         }
-        // 如果providedLibDirs为配置任何jar，则将flink安装目录lib添加到systemShipFiles
+        // 如果没有指定远程存储上jor目录，则将flink安装目录lib添加到systemShipFiles， 之后上传到远程存储中
         if (providedLibDirs == null || providedLibDirs.isEmpty()) {
             addLibFoldersToShipFiles(systemShipFiles);
         }
@@ -1215,11 +1223,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
             }
             Utils.setTokensFor(amContainer, pathsToObtainToken, yarnConfiguration, fetchToken);
         }
-
+        // 重点：设置容器的本地资源, 这些资源已经上传到HDFS上了。
         amContainer.setLocalResources(fileUploader.getRegisteredLocalResources());
         fileUploader.close();
 
         // Setup CLASSPATH and environment variables for ApplicationMaster
+        // 设置ApplicationMaster的CLASSPATH和环境变量
         final Map<String, String> appMasterEnv =
                 generateApplicationMasterEnv(
                         fileUploader,
@@ -1244,14 +1253,14 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         if (remoteKrb5Path != null) {
             appMasterEnv.put(YarnConfigKeys.ENV_KRB5_PATH, remoteKrb5Path.toString());
         }
-
+        // 重点：设置ApplicationMaster的环境变量
         amContainer.setEnvironment(appMasterEnv);
 
         // Set up resource type requirements for ApplicationMaster
         Resource capability = Records.newRecord(Resource.class);
-        // yarn容器内存
+        // 重点： 设置yarn容器内存为：masterMemoryMB
         capability.setMemory(clusterSpecification.getMasterMemoryMB());
-        // yarn容器虚拟核数
+        // yarn容器虚拟核数， yarn.appmaster.vcores ， 默认为：1
         capability.setVirtualCores(
                 flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
         // yarn程序名称： 如果没有使用-nm 或者 --name指定的话，则使用："Flink session cluster"
@@ -1425,8 +1434,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
     }
 
     private static class ClusterResourceDescription {
+        // Yarn集群中总空闲内存（各个节点空闲内存之和）
         public final int totalFreeMemory;
+        // Yarn集群中空闲内存最大的节点的空闲内存大小）
         public final int containerLimit;
+        // Yarn各个节点上的空闲内存
         public final int[] nodeManagersFree;
 
         public ClusterResourceDescription(
@@ -1515,6 +1527,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
         reflector.setAttemptFailuresValidityInterval(
                 appContext,
+                // yarn.application-attempt-failures-validity-interval
                 flinkConfiguration.getLong(
                         YarnConfigOptions.APPLICATION_ATTEMPT_FAILURE_VALIDITY_INTERVAL));
     }
@@ -1911,7 +1924,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
                 .map(File::getName)
                 .anyMatch(name -> name.equals(DEFAULT_FLINK_USR_LIB_DIR));
     }
-
+    // 重写配置中JobManager地址和端口、Rest地址和端口、ApplicationId, 设置高可用： high-availability.cluster-id
     private void setClusterEntrypointInfoToConfig(final ApplicationReport report) {
         checkNotNull(report);
 
@@ -1928,10 +1941,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
         flinkConfiguration.setInteger(RestOptions.PORT, port);
 
         flinkConfiguration.set(YarnConfigOptions.APPLICATION_ID, ConverterUtils.toString(appId));
-
+        // 如果配置没有HA cluster_id, 则设置
+        // high-availability.cluster-id : appId
         setHAClusterIdIfNotSet(flinkConfiguration, appId);
     }
-
+    // 如果配置没有HA cluster_id, 则设置: high-availability.cluster-id : appId
     private void setHAClusterIdIfNotSet(Configuration configuration, ApplicationId appId) {
         // set cluster-id to app id if not specified
         if (!configuration.contains(HighAvailabilityOptions.HA_CLUSTER_ID)) {
